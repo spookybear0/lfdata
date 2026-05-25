@@ -22,6 +22,8 @@ classifiers = [
 ]
 dependencies = [
     "sqlalchemy>=2.0.0",
+    "Pillow>=9.0.0",
+    "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]

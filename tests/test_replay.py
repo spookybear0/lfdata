@@ -176,3 +176,122 @@ def test_replay_system_rules() -> None:
     assert sct_state.lives == 18
     # Medic itself should NOT gain lives.
     assert med_state.lives == 20
+
+
+def test_replay_missile_decrements_and_penalties() -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
+
+    # Create game
+    game = LFGame(game_id="test_m_game", timestamp=datetime.now(), game_type="SM5")
+    game.penalty = -500
+
+    # Teams
+    t1 = GameTeam(
+        game_id="test_m_game",
+        team_index=0,
+        desc="Fire Team",
+        color_enum=11,
+        color_desc="Fire",
+        color_rgb="#FF5000",
+    )
+    game.teams = [t1]
+
+    # Entities
+    cmd = GameEntity(
+        game_id="test_m_game",
+        entity_id="C1",
+        type="player",
+        desc="Cmd1",
+        team_index=0,
+        level=1,
+        category=1,
+        battlesuit="Maverick",
+    )
+    base = GameEntity(
+        game_id="test_m_game",
+        entity_id="B1",
+        type="standard-target",
+        desc="Blue Base",
+        team_index=1,
+        level=1,
+        category=0,
+        battlesuit="",
+    )
+    game.entities = [cmd, base]
+
+    events = [
+        # Mission start
+        GameEvent(
+            game_id="test_m_game",
+            time=0,
+            event_type="0100",
+            action="start",
+            raw_message="",
+        ),
+        # Missile miss at 1000 ms (decrements missiles)
+        GameEvent(
+            game_id="test_m_game",
+            time=1000,
+            event_type="0304",
+            actor_entity_id="C1",
+            action="miss",
+            raw_message="",
+        ),
+        # Missile base miss at 2000 ms (decrements missiles)
+        GameEvent(
+            game_id="test_m_game",
+            time=2000,
+            event_type="0301",
+            actor_entity_id="C1",
+            target_entity_id="B1",
+            action="miss base",
+            raw_message="",
+        ),
+        # Missile base damage at 3000 ms (decrements missiles)
+        GameEvent(
+            game_id="test_m_game",
+            time=3000,
+            event_type="0302",
+            actor_entity_id="C1",
+            target_entity_id="B1",
+            action="damage base",
+            raw_message="",
+        ),
+        # Penalty at 4000 ms (adds penalty -500 to score)
+        GameEvent(
+            game_id="test_m_game",
+            time=4000,
+            event_type="0600",
+            actor_entity_id="C1",
+            action="penalty",
+            raw_message="",
+        ),
+        # Missile base destroy at 5000 ms (decrements missiles, awards capture)
+        GameEvent(
+            game_id="test_m_game",
+            time=5000,
+            event_type="0303",
+            actor_entity_id="C1",
+            target_entity_id="B1",
+            action="destroys",
+            raw_message="",
+        ),
+    ]
+    game.events = events
+
+    replay = LFReplaySystem(game)
+    replay.run()
+
+    cmd_state = replay.game_state.players["C1"]
+    # Commmander starts with 5 missiles.
+    # Fires 4: at 1000 (0304), 2000 (0301), 3000 (0302), and 5000 (0303).
+    # Resulting missiles: 5 - 4 = 1.
+    assert cmd_state.missiles == 1
+
+    # Score:
+    # Capturing base awards 1001 points.
+    # Penalty deducts 500 points.
+    # Total score should be 501.
+    assert cmd_state.score == 501
+    assert "B1" in cmd_state.captured_bases

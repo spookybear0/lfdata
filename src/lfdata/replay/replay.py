@@ -1,6 +1,7 @@
 """Replay system orchestrator for simulating and recording LF game state changes."""
 
 from lfdata.model import GameEvent, LFGame, LFRole, LFTeamType
+from lfdata.replay.handlers import LFReplayHandlersMixin
 from lfdata.replay.record import LFReplayEventRecord
 from lfdata.replay.state import (
     LFReplayGameState,
@@ -9,7 +10,7 @@ from lfdata.replay.state import (
 )
 
 
-class LFReplaySystem:
+class LFReplaySystem(LFReplayHandlersMixin):
     """Orchestrates the replay simulation from a parsed game."""
 
     def __init__(self, game: LFGame) -> None:
@@ -159,261 +160,16 @@ class LFReplaySystem:
             if player.role != LFRole.AMMO and not player.is_eliminated():
                 player.shots = max(0, player.shots - 1)
 
-    def _process_event_zap(self, event: GameEvent) -> str:
-        """Processes zapping events.
+    def _decrement_missiles(self, actor_id: str | None) -> None:
+        """Helper to decrement missiles left for player.
 
         Args:
-            event: The zapping event.
-
-        Returns:
-            str: The event description string.
+            actor_id: The ID of the acting player.
         """
-        actor = self.game_state.players.get(event.actor_entity_id)
-        target = self.game_state.players.get(event.target_entity_id)
-
-        self._decrement_shots(event.actor_entity_id)
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
-        target_name = self.entity_names.get(
-            event.target_entity_id, event.target_entity_id
-        )
-
-        if (
-            actor
-            and target
-            and not actor.is_eliminated()
-            and not target.is_eliminated()
-        ):
-            if actor.team_index == target.team_index:
-                # Friendly fire: penalize actor, target is unaffected
-                actor.score -= 100
-            else:
-                actor.score += 100
-                actor.special_points += 1
-
-                # Check target state
-                if event.event_type in ["0205", "0207"]:  # DAMAGED_OPPONENT / TEAM
-                    target.hp = max(1, target.hp - 1)
-                elif event.event_type in ["0206", "0208"]:  # DOWNED_OPPONENT / TEAM
-                    if not target.is_down(event.time):
-                        target.lives = max(0, target.lives - 1)
-                        target.score -= 20
-                    target.hp = 0
-                    target.downtime_ends_at = event.time + 8000
-                    target.resettable_starts_at = event.time + 4000
-
-        return f"{actor_name} zaps {target_name}"
-
-    def _process_event_missile(self, event: GameEvent) -> str:
-        """Processes missile zapping events.
-
-        Args:
-            event: The missile event.
-
-        Returns:
-            str: The event description string.
-        """
-        actor = self.game_state.players.get(event.actor_entity_id)
-        target = self.game_state.players.get(event.target_entity_id)
-
-        if actor and not actor.is_eliminated():
-            actor.missiles = max(0, actor.missiles - 1)
-
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
-        target_name = self.entity_names.get(
-            event.target_entity_id, event.target_entity_id
-        )
-
-        if (
-            actor
-            and target
-            and not actor.is_eliminated()
-            and not target.is_eliminated()
-        ):
-            if actor.team_index == target.team_index:
-                # Friendly fire missile: penalize actor, target unaffected
-                actor.score -= 500
-            else:
-                actor.score += 500
-                actor.special_points += 2
-
-                # Missile immediately downs target
-                if not target.is_down(event.time):
-                    target.lives = max(0, target.lives - 2)
-                    target.score -= 100
-                target.hp = 0
-                target.downtime_ends_at = event.time + 8000
-                target.resettable_starts_at = event.time + 4000
-
-        return f"{actor_name} missiles {target_name}"
-
-    def _process_event_base_destroy(self, event: GameEvent) -> str:
-        """Processes base destruction/capture events.
-
-        Args:
-            event: The base destruction/capture event.
-
-        Returns:
-            str: The event description string.
-        """
-        actor = self.game_state.players.get(event.actor_entity_id)
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
-        target_name = self.entity_names.get(
-            event.target_entity_id, event.target_entity_id
-        )
-
-        if event.event_type != "0B03":
-            self._decrement_shots(event.actor_entity_id)
-
-        target_entity = None
-        for entity in self.game.entities:
-            if entity.entity_id == event.target_entity_id:
-                target_entity = entity
-                break
-
-        if actor and not actor.is_eliminated() and target_entity:
-            if (
-                target_entity.team_index != actor.team_index
-                and event.target_entity_id not in actor.captured_bases
-            ):
-                actor.captured_bases.add(event.target_entity_id)
-                actor.score += 1001
-                actor.special_points += 5
-
-        if event.event_type == "0B03":
-            return f"{actor_name} is awarded {target_name}"
-        return f"{actor_name} destroys {target_name}"
-
-    def _process_event_nuke_detonate(self, event: GameEvent) -> str:
-        """Processes nuke detonation events.
-
-        Args:
-            event: The nuke detonation event.
-
-        Returns:
-            str: The event description string.
-        """
-        actor = self.game_state.players.get(event.actor_entity_id)
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
-
-        if actor and not actor.is_eliminated():
-            actor.score += 500
-            for player in self.game_state.players.values():
-                if player.team_index != actor.team_index and not player.is_eliminated():
-                    player.lives = max(0, player.lives - 3)
-                    player.hp = 0
-                    player.downtime_ends_at = event.time + 8000
-                    player.resettable_starts_at = event.time + 4000
-
-        return f"{actor_name} detonates nuke"
-
-    def _process_event_resupply(self, event: GameEvent) -> str:
-        """Processes resupply (ammo, lives, team boosts) events.
-
-        Args:
-            event: The resupply event.
-
-        Returns:
-            str: The event description string.
-        """
-        actor = self.game_state.players.get(event.actor_entity_id)
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
-        target_name = self.entity_names.get(
-            event.target_entity_id, event.target_entity_id
-        )
-
-        if actor and actor.is_eliminated():
-            return ""
-
-        if event.event_type == "0500":
-            target = self.game_state.players.get(event.target_entity_id)
-            if target and not target.is_eliminated():
-                target.resupply_shots_from_ammo()
-            return f"{actor_name} resupplies {target_name}"
-
-        if event.event_type == "0502":
-            target = self.game_state.players.get(event.target_entity_id)
-            if target and not target.is_eliminated():
-                target.resupply_lives_from_medic()
-            return f"{actor_name} resupplies {target_name}"
-
-        if event.event_type == "0510":
-            if actor:
-                for player in self.game_state.players.values():
-                    if (
-                        player.team_index == actor.team_index
-                        and player.entity_id != actor.entity_id
-                        and not player.is_eliminated()
-                        and not player.is_down(event.time)
-                    ):
-                        player.resupply_shots_from_ammo()
-            return f"{actor_name} resupplies team"
-
-        if event.event_type == "0512":
-            if actor:
-                for player in self.game_state.players.values():
-                    if (
-                        player.team_index == actor.team_index
-                        and player.entity_id != actor.entity_id
-                        and not player.is_eliminated()
-                        and not player.is_down(event.time)
-                    ):
-                        player.resupply_lives_from_medic()
-            return f"{actor_name} resupplies team"
-
-        return ""
-
-    def _process_event_other(self, event: GameEvent) -> str:
-        """Processes other miscellaneous events.
-
-        Args:
-            event: The miscellaneous event.
-
-        Returns:
-            str: The event description string.
-        """
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
-        target_name = self.entity_names.get(
-            event.target_entity_id, event.target_entity_id
-        )
-
-        if event.event_type == "0100":
-            return "* Mission Start *"
-        if event.event_type == "0101":
-            return "* Mission End *"
-        if event.event_type == "0201":
-            self._decrement_shots(event.actor_entity_id)
-            return f"{actor_name} misses"
-        if event.event_type == "0202":
-            self._decrement_shots(event.actor_entity_id)
-            return f"{actor_name} misses base"
-        if event.event_type == "0203":
-            self._decrement_shots(event.actor_entity_id)
-            return f"{actor_name} zaps {target_name}"
-        if event.event_type == "0300":
-            return f"{actor_name} locking {target_name}"
-        if event.event_type == "0400":
-            actor = self.game_state.players.get(event.actor_entity_id)
-            if actor and not actor.is_eliminated():
-                actor.special_points = max(0, actor.special_points - 15)
-            return f"{actor_name} activates rapid fire"
-        if event.event_type == "0404":
-            actor = self.game_state.players.get(event.actor_entity_id)
-            if actor and not actor.is_eliminated():
-                actor.special_points = max(0, actor.special_points - 20)
-            return f"{actor_name} activates nuke"
-        if event.event_type == "0600":
-            actor = self.game_state.players.get(event.actor_entity_id)
-            if actor and not actor.is_eliminated():
-                gp = self.game.penalty
-                penalty_val = gp if gp is not None else -1000
-                actor.score += penalty_val
-            return f"{actor_name} is penalized"
-        if event.event_type == "0900":
-            return f"{actor_name} completes an achievement!"
-        if event.event_type == "0902":
-            return f"{actor_name} earns a reward!"
-
-        return event.action
+        if actor_id and actor_id in self.game_state.players:
+            player = self.game_state.players[actor_id]
+            if not player.is_eliminated():
+                player.missiles = max(0, player.missiles - 1)
 
     def _take_snapshot(
         self,

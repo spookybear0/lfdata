@@ -99,16 +99,42 @@ def main() -> None:
 
         for el in elements:
             if el.element_type == "text":
-                print(f"  [{el.position}] Text: {el.text}")
+                coord_str = (
+                    f"  [x={el.x}, y={el.y}, "
+                    f"align={el.align}, alpha={el.alpha:.2f}]"
+                )
+                style_str = (
+                    f"(font={el.style.font}, style={el.style.style}, "
+                    f"size={el.style.size}, color={el.style.color}, "
+                    f"bg_color={el.style.background_color})"
+                )
+                print(f"{coord_str} Text: {el.text} {style_str}")
             elif el.element_type == "downtime_bar":
+                coord_str = (
+                    f"  [top_left={el.top_left}, "
+                    f"bottom_right={el.bottom_right}, alpha={el.alpha:.2f}]"
+                )
                 print(
-                    f"  [{el.position}] Downtime Bar: "
-                    f"safe_ms={el.safe_ms}, resettable_ms={el.resettable_ms}"
+                    f"{coord_str} Downtime Bar: safe_ms={el.safe_ms}, "
+                    f"resettable_ms={el.resettable_ms}"
                 )
             elif el.element_type == "scoreboard":
-                print(f"  [{el.position}] Scoreboard:")
+                coord_str = (
+                    f"  [x={el.x}, y={el.y}, "
+                    f"align={el.align}, alpha={el.alpha:.2f}]"
+                )
+                style_str = (
+                    f"(font={el.style.font}, style={el.style.style}, "
+                    f"size={el.style.size})"
+                )
+                print(f"{coord_str} Scoreboard {style_str}:")
                 for team in el.scoreboard_data["teams"]:
-                    print(f'    {team["team_name"]} - ' f'Score: {team["team_score"]}')
+                    team_name = team["team_name"]
+                    rank = team["visual_rank"]
+                    score = team["team_score"]
+                    print(
+                        f"    {team_name} (visual_rank={rank:.2f}) - " f"Score: {score}"
+                    )
                     header = (
                         f'      {"Player":<20} | '
                         f'{"Role":<12} | '

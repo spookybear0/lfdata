@@ -19,9 +19,15 @@ class UIElement:
     """Represents a single UI element on a video frame."""
 
     element_type: str
-    position: str
+    position: str = ""
     text: str | None = None
     style: UIElementStyle = field(default_factory=UIElementStyle)
+    x: float | None = None
+    y: float | None = None
+    align: str | None = None
+    top_left: list[float] | None = None
+    bottom_right: list[float] | None = None
     safe_ms: int = 0
     resettable_ms: int = 0
     scoreboard_data: dict[str, any] | None = None
+    alpha: float = 1.0
