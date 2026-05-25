@@ -12,12 +12,10 @@ class Player(Base):
     A player is an individual person who participates in LF games.
     """
 
-    __tablename__ = 'players'
+    __tablename__ = "players"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    codename: Mapped[str] = mapped_column(
-        String(50), unique=True, index=True
-    )
+    codename: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     real_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     def __repr__(self) -> str:

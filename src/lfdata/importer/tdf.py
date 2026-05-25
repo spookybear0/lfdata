@@ -36,41 +36,41 @@ class TdfImporter:
         game = LFGame(
             game_id=self.file_path.stem,
             timestamp=datetime.now(),
-            game_type='Standard TDF',
+            game_type="Standard TDF",
         )
 
         try:
-            with open(self.file_path, 'r', encoding='utf-16') as f:
+            with open(self.file_path, "r", encoding="utf-16") as f:
                 content = f.read()
         except UnicodeError:
-            with open(self.file_path, 'r', encoding='utf-8') as f:
+            with open(self.file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
         for line in content.splitlines():
             line = line.strip()
-            if not line or line.startswith(';'):
+            if not line or line.startswith(";"):
                 continue
-            parts = line.split('\t')
+            parts = line.split("\t")
             if not parts:
                 continue
             rec_type = parts[0]
-            if rec_type == '0':
+            if rec_type == "0":
                 self._parse_info(parts, game)
-            elif rec_type == '1':
+            elif rec_type == "1":
                 self._parse_mission(parts, game)
-            elif rec_type == '2':
+            elif rec_type == "2":
                 self._parse_team(parts, game)
-            elif rec_type == '3':
+            elif rec_type == "3":
                 self._parse_entity_start(parts, game)
-            elif rec_type == '4':
+            elif rec_type == "4":
                 self._parse_event(parts, game)
-            elif rec_type == '5':
+            elif rec_type == "5":
                 self._parse_score(parts, game)
-            elif rec_type == '6':
+            elif rec_type == "6":
                 self._parse_entity_end(parts, game)
-            elif rec_type == '7':
+            elif rec_type == "7":
                 self._parse_sm5_stats(parts, game)
-            elif rec_type == '9':
+            elif rec_type == "9":
                 self._parse_player_state(parts, game)
 
         return game
@@ -97,7 +97,7 @@ class TdfImporter:
         if len(parts) >= 6:
             game.game_type = parts[2]
             try:
-                game.timestamp = datetime.strptime(parts[3], '%Y%m%d%H%M%S')
+                game.timestamp = datetime.strptime(parts[3], "%Y%m%d%H%M%S")
             except ValueError:
                 pass
             try:
@@ -156,7 +156,7 @@ class TdfImporter:
                 category=category,
                 battlesuit=parts[8],
             )
-            if entity.type == 'player':
+            if entity.type == "player":
                 entity.player = Player(codename=entity.desc)
             game.entities.append(entity)
 
@@ -176,7 +176,7 @@ class TdfImporter:
             varies = parts[3:] if len(parts) > 3 else []
             actor_entity_id = None
             target_entity_id = None
-            action = ''
+            action = ""
             if len(varies) == 1:
                 action = varies[0].strip()
             elif len(varies) == 2:
@@ -193,7 +193,7 @@ class TdfImporter:
                 actor_entity_id=actor_entity_id,
                 target_entity_id=target_entity_id,
                 action=action,
-                raw_message='\t'.join(varies),
+                raw_message="\t".join(varies),
             )
             game.events.append(event)
 

@@ -5,13 +5,13 @@ from lfdata.video import VideoGenerator
 
 def test_video_generator_generate(tmp_path) -> None:
     game = LFGame(
-        game_id='video_test_game',
+        game_id="video_test_game",
         timestamp=datetime.now(),
-        game_type='Test Game',
+        game_type="Test Game",
     )
 
     generator = VideoGenerator(game)
-    output_file = tmp_path / 'output.mp4'
+    output_file = tmp_path / "output.mp4"
 
     generated_path = generator.generate(output_file)
     assert generated_path.exists()

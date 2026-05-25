@@ -6,7 +6,7 @@ from lfdata.model import LFRole
 class LFReplayPlayerState:
     """Tracks a single player's state during a game replay."""
 
-    def __init__(self, entity_id: str, role: LFRole, team_index: int):
+    def __init__(self, entity_id: str, role: LFRole, team_index: int) -> None:
         """Initializes the player state with role-based start values.
 
         Args:
@@ -22,32 +22,56 @@ class LFReplayPlayerState:
         self.missiles = role.start_missiles
         self.score = 0
         self.special_points = 0
+        self.max_hp = role.max_hp
+        self.hp = role.max_hp
+        self.downtime_ends_at = 0
+        self.resettable_starts_at = 0
+        self.captured_bases: set[str] = set()
+
+    def is_eliminated(self) -> bool:
+        """Returns True if the player has no lives left and is out of the game."""
+        return self.lives <= 0
+
+    def is_down(self, current_time: int) -> bool:
+        """Returns True if the player is currently deactivated / down."""
+        return current_time < self.downtime_ends_at
+
+    def update_downtime(self, current_time: int) -> None:
+        """Restores player's HP if their downtime has expired."""
+        if self.is_eliminated():
+            self.hp = 0
+            return
+        if current_time >= self.downtime_ends_at:
+            if self.hp < self.max_hp:
+                self.hp = self.max_hp
 
     def resupply_lives_from_medic(self) -> None:
         """Adds lives to player based on role-specific medic resupply values."""
-        self.lives = min(
-            self.role.max_lives, self.lives + self.role.medic_lives_gain
-        )
+        if self.is_eliminated():
+            return
+        self.lives = min(self.role.max_lives, self.lives + self.role.medic_lives_gain)
 
     def resupply_shots_from_ammo(self) -> None:
         """Adds shots to player based on role-specific ammo resupply values."""
-        self.shots = min(
-            self.role.max_shots, self.shots + self.role.ammo_shots_gain
-        )
+        if self.is_eliminated():
+            return
+        self.shots = min(self.role.max_shots, self.shots + self.role.ammo_shots_gain)
 
 
 class LFReplayTeamState:
     """Tracks a single team's state during a game replay."""
 
-    def __init__(self, team_index: int, name: str):
+    def __init__(self, team_index: int, name: str, color_rgb: str = "#ffffff") -> None:
         """Initializes the team state.
 
         Args:
             team_index: The team index.
             name: The team name.
+            color_rgb: The RGB hex color code.
         """
         self.team_index = team_index
         self.name = name
+        self.color_rgb = color_rgb
         self.score = 0
         self.ranking = 1
 
@@ -78,8 +102,6 @@ class LFReplayGameState:
                 if p.team_index == team.team_index
             )
 
-        sorted_teams = sorted(
-            self.teams.values(), key=lambda t: t.score, reverse=True
-        )
+        sorted_teams = sorted(self.teams.values(), key=lambda t: t.score, reverse=True)
         for rank, team in enumerate(sorted_teams, 1):
             team.ranking = rank

@@ -12,11 +12,11 @@ class ScoreHistory(Base):
     These score updates are parsed from the ';5/score' record type.
     """
 
-    __tablename__ = 'score_history'
+    __tablename__ = "score_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     game_id: Mapped[str] = mapped_column(
-        ForeignKey('lf_games.game_id', ondelete='CASCADE'), index=True
+        ForeignKey("lf_games.game_id", ondelete="CASCADE"), index=True
     )
     time: Mapped[int] = mapped_column(Integer)
     entity_id: Mapped[str] = mapped_column(String(50), index=True)
@@ -25,9 +25,7 @@ class ScoreHistory(Base):
     new_score: Mapped[int] = mapped_column(Integer)
 
     # Relationships
-    game: Mapped['LFGame'] = relationship(
-        'LFGame', back_populates='score_history'
-    )
+    game: Mapped["LFGame"] = relationship("LFGame", back_populates="score_history")
 
     def __repr__(self) -> str:
         """Returns a string representation of the score history entry.

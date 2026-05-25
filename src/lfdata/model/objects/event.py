@@ -12,25 +12,21 @@ class GameEvent(Base):
     Events involve actions performed by one entity on another, or system actions.
     """
 
-    __tablename__ = 'game_events'
+    __tablename__ = "game_events"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     game_id: Mapped[str] = mapped_column(
-        ForeignKey('lf_games.game_id', ondelete='CASCADE'), index=True
+        ForeignKey("lf_games.game_id", ondelete="CASCADE"), index=True
     )
     time: Mapped[int] = mapped_column(Integer)
     event_type: Mapped[str] = mapped_column(String(10))
-    actor_entity_id: Mapped[str | None] = mapped_column(
-        String(50), nullable=True
-    )
-    target_entity_id: Mapped[str | None] = mapped_column(
-        String(50), nullable=True
-    )
+    actor_entity_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    target_entity_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     action: Mapped[str] = mapped_column(String(100))
     raw_message: Mapped[str] = mapped_column(String(255))
 
     # Relationships
-    game: Mapped['LFGame'] = relationship('LFGame', back_populates='events')
+    game: Mapped["LFGame"] = relationship("LFGame", back_populates="events")
 
     def __repr__(self) -> str:
         """Returns a string representation of the event.

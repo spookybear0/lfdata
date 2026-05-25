@@ -11,9 +11,9 @@ class LFTeamType(enum.Enum):
     Includes display names and the color enum.
     """
 
-    FIRE = (0, 'Fire Team', LFTeamColor.FIRE)
-    EARTH = (1, 'Earth Team', LFTeamColor.EARTH)
-    NEUTRAL = (2, 'Neutral', LFTeamColor.NONE)
+    FIRE = (0, "Fire Team", LFTeamColor.FIRE)
+    EARTH = (1, "Earth Team", LFTeamColor.EARTH)
+    NEUTRAL = (2, "Neutral", LFTeamColor.NONE)
 
     def __init__(self, team_index: int, display_name: str, color: LFTeamColor):
         """Initializes the team type.
@@ -28,7 +28,7 @@ class LFTeamType(enum.Enum):
         self.color = color
 
     @classmethod
-    def from_index(cls, team_index: int) -> 'LFTeamType':
+    def from_index(cls, team_index: int) -> "LFTeamType":
         """Retrieves a team type by its team index.
 
         Args:

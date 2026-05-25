@@ -12,11 +12,11 @@ class Sm5Stats(Base):
     These stats are parsed from the ';7/sm5-stats' record type.
     """
 
-    __tablename__ = 'sm5_stats'
+    __tablename__ = "sm5_stats"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     game_id: Mapped[str] = mapped_column(
-        ForeignKey('lf_games.game_id', ondelete='CASCADE'), index=True
+        ForeignKey("lf_games.game_id", ondelete="CASCADE"), index=True
     )
     entity_id: Mapped[str] = mapped_column(String(50), index=True)
 
@@ -46,7 +46,7 @@ class Sm5Stats(Base):
     missiled_team: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
-    game: Mapped['LFGame'] = relationship('LFGame', back_populates='sm5_stats')
+    game: Mapped["LFGame"] = relationship("LFGame", back_populates="sm5_stats")
 
     def __repr__(self) -> str:
         """Returns a string representation of the SM5 stats.

@@ -12,11 +12,11 @@ class GameTeam(Base):
     Each game mode has specific teams (e.g., Fire Team and Earth Team).
     """
 
-    __tablename__ = 'game_teams'
+    __tablename__ = "game_teams"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     game_id: Mapped[str] = mapped_column(
-        ForeignKey('lf_games.game_id', ondelete='CASCADE'), index=True
+        ForeignKey("lf_games.game_id", ondelete="CASCADE"), index=True
     )
     team_index: Mapped[int] = mapped_column(Integer)
     desc: Mapped[str] = mapped_column(String(50))
@@ -25,7 +25,7 @@ class GameTeam(Base):
     color_rgb: Mapped[str] = mapped_column(String(10))
 
     # Relationships
-    game: Mapped['LFGame'] = relationship('LFGame', back_populates='teams')
+    game: Mapped["LFGame"] = relationship("LFGame", back_populates="teams")
 
     def __repr__(self) -> str:
         """Returns a string representation of the team.

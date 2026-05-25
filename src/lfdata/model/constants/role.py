@@ -9,11 +9,11 @@ class LFRole(enum.Enum):
     Metadata includes startup lives, shots, missiles, and resupply rates.
     """
 
-    COMMANDER = (1, 'Commander', 15, 30, 5, 30, 60, 4, 5)
-    HEAVY = (2, 'Heavy', 10, 20, 5, 20, 40, 3, 5)
-    SCOUT = (3, 'Scout', 15, 30, 0, 30, 60, 3, 10)
-    MEDIC = (4, 'Medic', 20, 15, 0, 20, 20, 0, 5)
-    AMMO = (5, 'Ammo', 10, 0, 0, 20, 0, 3, 0)
+    COMMANDER = (1, "Commander", 15, 30, 5, 30, 60, 4, 5, 3)
+    HEAVY = (2, "Heavy", 10, 20, 5, 20, 40, 3, 5, 3)
+    SCOUT = (3, "Scout", 15, 30, 0, 30, 60, 3, 10, 1)
+    MEDIC = (4, "Medic", 20, 15, 0, 20, 20, 0, 5, 2)
+    AMMO = (5, "Ammo", 10, 0, 0, 20, 0, 3, 0, 1)
 
     def __init__(
         self,
@@ -26,6 +26,7 @@ class LFRole(enum.Enum):
         max_shots: int,
         medic_lives_gain: int,
         ammo_shots_gain: int,
+        max_hp: int,
     ):
         """Initializes the role with game balancing parameters.
 
@@ -39,6 +40,7 @@ class LFRole(enum.Enum):
             max_shots: The maximum limit of shots.
             medic_lives_gain: Lives gained when zapped by a medic.
             ammo_shots_gain: Shots gained when zapped by an ammo carrier.
+            max_hp: The maximum hit points (shields) for the role.
         """
         self.role_id = role_id
         self.display_name = display_name
@@ -49,9 +51,10 @@ class LFRole(enum.Enum):
         self.max_shots = max_shots
         self.medic_lives_gain = medic_lives_gain
         self.ammo_shots_gain = ammo_shots_gain
+        self.max_hp = max_hp
 
     @classmethod
-    def from_id(cls, role_id: int) -> 'LFRole':
+    def from_id(cls, role_id: int) -> "LFRole":
         """Retrieves a role by its TDF category ID.
 
         Args:

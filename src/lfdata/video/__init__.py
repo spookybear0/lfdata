@@ -3,6 +3,15 @@
 from pathlib import Path
 
 from lfdata.model import LFGame
+from lfdata.video.element import UIElement, UIElementStyle
+from lfdata.video.generator import VisualElementGenerator
+
+__all__ = [
+    "VideoGenerator",
+    "UIElement",
+    "UIElementStyle",
+    "VisualElementGenerator",
+]
 
 
 class VideoGenerator:
@@ -21,9 +30,6 @@ class VideoGenerator:
             Path: The path to the generated video file.
         """
         output_path = Path(output_path)
-        print(
-            f"Generating video for game {self.game.game_id} "
-            f"at {output_path}..."
-        )
+        print(f"Generating video for game {self.game.game_id} " f"at {output_path}...")
         output_path.touch()
         return output_path

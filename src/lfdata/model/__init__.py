@@ -14,16 +14,16 @@ from lfdata.model.objects.team import GameTeam
 from lfdata.model.gametypes.sm5_stats import Sm5Stats
 
 __all__ = [
-    'Base',
-    'Player',
-    'LFGame',
-    'GameTeam',
-    'GameEntity',
-    'GameEvent',
-    'Sm5Stats',
-    'ScoreHistory',
-    'PlayerStateHistory',
-    'LFRole',
-    'LFTeamColor',
-    'LFTeamType',
+    "Base",
+    "Player",
+    "LFGame",
+    "GameTeam",
+    "GameEntity",
+    "GameEvent",
+    "Sm5Stats",
+    "ScoreHistory",
+    "PlayerStateHistory",
+    "LFRole",
+    "LFTeamColor",
+    "LFTeamType",
 ]

@@ -9,7 +9,7 @@ from lfdata.model import Base, GameEntity, LFGame, Player
 class DatabaseStorage:
     """Manages database connection and persistence of LF games."""
 
-    def __init__(self, connection_string: str = 'sqlite:///lfdata.db'):
+    def __init__(self, connection_string: str = "sqlite:///lfdata.db"):
         """Initializes the database engine and creates all tables.
 
         Args:
@@ -64,9 +64,7 @@ class DatabaseStorage:
                 session.query(LFGame)
                 .options(
                     selectinload(LFGame.teams),
-                    selectinload(LFGame.entities).selectinload(
-                        GameEntity.player
-                    ),
+                    selectinload(LFGame.entities).selectinload(GameEntity.player),
                     selectinload(LFGame.events),
                     selectinload(LFGame.sm5_stats),
                     selectinload(LFGame.score_history),

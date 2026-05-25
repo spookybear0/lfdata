@@ -1,0 +1,27 @@
+"""UI elements and styling for LF game video generation."""
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class UIElementStyle:
+    """Represents text styling attributes for visual elements."""
+
+    font: str = "Verdana"
+    style: str = "normal"
+    size: int = 20
+    color: str = "#ffffffff"
+    background_color: str = "#00000000"
+
+
+@dataclass
+class UIElement:
+    """Represents a single UI element on a video frame."""
+
+    element_type: str
+    position: str
+    text: str | None = None
+    style: UIElementStyle = field(default_factory=UIElementStyle)
+    safe_ms: int = 0
+    resettable_ms: int = 0
+    scoreboard_data: dict[str, any] | None = None
