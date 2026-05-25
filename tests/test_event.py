@@ -2,9 +2,7 @@ from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from lfdata.model.base import Base
-from lfdata.model.event import GameEvent
-from lfdata.model.game import LFGame
+from lfdata.model import Base, GameEvent, LFGame
 
 
 def test_create_event() -> None:

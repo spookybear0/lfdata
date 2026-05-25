@@ -2,10 +2,7 @@ from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from lfdata.model.base import Base
-from lfdata.model.entity import GameEntity
-from lfdata.model.game import LFGame
-from lfdata.model.player import Player
+from lfdata.model import Base, GameEntity, LFGame, Player
 
 
 def test_create_entity() -> None:

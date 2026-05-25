@@ -21,8 +21,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    # Basic core dependencies
-    # (Specific dependencies like sqlalchemy, opencv-python, numpy can be added/refined later)
+    "sqlalchemy>=2.0.0",
 ]
 
 [project.optional-dependencies]

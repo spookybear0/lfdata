@@ -1,6 +1,6 @@
 """Replay system orchestrator for simulating and recording LF game state changes."""
 
-from lfdata.model import GameEvent, LFGame
+from lfdata.model import GameEvent, LFGame, LFRole, LFTeamType
 from lfdata.replay.record import LFReplayEventRecord
 from lfdata.replay.state import (
     LFReplayGameState,
@@ -33,23 +33,22 @@ class LFReplaySystem:
     def _init_states(self) -> None:
         """Initializes player and team states based on game metadata."""
         for team in self.game.teams:
-            self.team_states.append(
-                LFReplayTeamState(team.team_index, team.desc)
-            )
+            try:
+                team_type = LFTeamType.from_index(team.team_index)
+                name = team_type.display_name
+            except ValueError:
+                name = team.desc
+            self.team_states.append(LFReplayTeamState(team.team_index, name))
 
-        role_map = {
-            1: 'commander',
-            2: 'heavy',
-            3: 'scout',
-            4: 'medic',
-            5: 'ammo',
-        }
         for entity in self.game.entities:
             if entity.type == 'player':
-                role_name = role_map.get(entity.category, 'scout')
+                try:
+                    role = LFRole.from_id(entity.category)
+                except ValueError:
+                    role = LFRole.SCOUT
                 self.player_states.append(
                     LFReplayPlayerState(
-                        entity.entity_id, role_name, entity.team_index
+                        entity.entity_id, role, entity.team_index
                     )
                 )
 
@@ -103,7 +102,7 @@ class LFReplaySystem:
         """
         if actor_id and actor_id in self.game_state.players:
             player = self.game_state.players[actor_id]
-            if player.role.lower() != 'ammo':
+            if player.role != LFRole.AMMO:
                 player.shots = max(0, player.shots - 1)
 
     def _process_event_zap(self, event: GameEvent) -> str:

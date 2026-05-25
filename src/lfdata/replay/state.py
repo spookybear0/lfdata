@@ -1,84 +1,39 @@
 """Classes representing the state of players, teams, and the game during a replay."""
 
+from lfdata.model import LFRole
+
 
 class LFReplayPlayerState:
     """Tracks a single player's state during a game replay."""
 
-    def __init__(self, entity_id: str, role: str, team_index: int):
+    def __init__(self, entity_id: str, role: LFRole, team_index: int):
         """Initializes the player state with role-based start values.
 
         Args:
             entity_id: The ID of the game entity.
-            role: The role name (e.g. Commander, Scout).
+            role: The LFRole enum representing the player's role.
             team_index: The team index the player belongs to.
         """
         self.entity_id = entity_id
         self.role = role
         self.team_index = team_index
-        self.lives = 0
-        self.shots = 0
-        self.missiles = 0
+        self.lives = role.start_lives
+        self.shots = role.start_shots
+        self.missiles = role.start_missiles
         self.score = 0
         self.special_points = 0
-        self._init_startup_state()
-
-    def _init_startup_state(self) -> None:
-        """Initializes role-based lives, shots, and missiles."""
-        role_lower = self.role.lower()
-        if role_lower == 'commander':
-            self.lives = 15
-            self.shots = 30
-            self.missiles = 5
-        elif role_lower == 'heavy':
-            self.lives = 10
-            self.shots = 20
-            self.missiles = 5
-        elif role_lower == 'scout':
-            self.lives = 15
-            self.shots = 30
-            self.missiles = 0
-        elif role_lower == 'medic':
-            self.lives = 20
-            self.shots = 15
-            self.missiles = 0
-        elif role_lower == 'ammo':
-            self.lives = 10
-            self.shots = 0
-            self.missiles = 0
 
     def resupply_lives_from_medic(self) -> None:
         """Adds lives to player based on role-specific medic resupply values."""
-        role_lower = self.role.lower()
-        gain = 0
-        max_lives = 0
-        if role_lower == 'scout':
-            gain, max_lives = 3, 30
-        elif role_lower == 'medic':
-            gain, max_lives = 0, 20
-        elif role_lower == 'ammo':
-            gain, max_lives = 3, 20
-        elif role_lower == 'heavy':
-            gain, max_lives = 3, 20
-        elif role_lower == 'commander':
-            gain, max_lives = 4, 30
-
-        self.lives = min(max_lives, self.lives + gain)
+        self.lives = min(
+            self.role.max_lives, self.lives + self.role.medic_lives_gain
+        )
 
     def resupply_shots_from_ammo(self) -> None:
         """Adds shots to player based on role-specific ammo resupply values."""
-        role_lower = self.role.lower()
-        gain = 0
-        max_shots = 0
-        if role_lower == 'scout':
-            gain, max_shots = 10, 60
-        elif role_lower == 'medic':
-            gain, max_shots = 5, 20
-        elif role_lower == 'heavy':
-            gain, max_shots = 5, 40
-        elif role_lower == 'commander':
-            gain, max_shots = 5, 60
-
-        self.shots = min(max_shots, self.shots + gain)
+        self.shots = min(
+            self.role.max_shots, self.shots + self.role.ammo_shots_gain
+        )
 
 
 class LFReplayTeamState:

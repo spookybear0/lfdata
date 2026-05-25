@@ -1,8 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from lfdata.model.base import Base
-from lfdata.model.player import Player
+from lfdata.model import Base, Player
 
 
 def test_create_player() -> None:
