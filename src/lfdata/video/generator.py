@@ -298,6 +298,11 @@ class VisualElementGenerator:
         new_p.downtime_ends_at = p.downtime_ends_at
         new_p.resettable_starts_at = p.resettable_starts_at
         new_p.captured_bases = set(p.captured_bases)
+        new_p.has_rapid_fire = p.has_rapid_fire
+        new_p.nukes_activated = p.nukes_activated
+        new_p.nukes_detonated = p.nukes_detonated
+        new_p.nuke_cancels = p.nuke_cancels
+        new_p.own_nuke_cancels = p.own_nuke_cancels
         return new_p
 
     def _copy_team_state(self, t: LFReplayTeamState) -> LFReplayTeamState:
@@ -394,6 +399,7 @@ class VisualElementGenerator:
                 "0204",
                 "0303",
                 "0B03",
+                "nuke_cancel",
             ]
             if desc:
                 self.event_log.append(

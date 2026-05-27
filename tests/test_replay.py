@@ -540,3 +540,469 @@ def test_team_boost_not_down() -> None:
 
     # S2 was down, should NOT receive boost: 15 - 1 = 14 lives
     assert s2_state.lives == 14
+
+
+def test_scout_rapid_fire_sp_rules() -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
+
+    game = LFGame(
+        game_id="test_rapid_game",
+        timestamp=datetime.now(),
+        game_type="SM5",
+    )
+
+    t1 = GameTeam(
+        game_id="test_rapid_game",
+        team_index=0,
+        desc="Fire Team",
+        color_enum=11,
+        color_desc="Fire",
+        color_rgb="#FF5000",
+    )
+    t2 = GameTeam(
+        game_id="test_rapid_game",
+        team_index=1,
+        desc="Earth Team",
+        color_enum=13,
+        color_desc="Earth",
+        color_rgb="#00FF00",
+    )
+    game.teams = [t1, t2]
+
+    # Scout 1 on team 0
+    s1 = GameEntity(
+        game_id="test_rapid_game",
+        entity_id="S1",
+        type="player",
+        desc="Sct1",
+        team_index=0,
+        level=1,
+        category=3,
+        battlesuit="Interceptor",
+    )
+    # Enemy Scout 2 on team 1
+    s2 = GameEntity(
+        game_id="test_rapid_game",
+        entity_id="S2",
+        type="player",
+        desc="Sct2",
+        team_index=1,
+        level=1,
+        category=3,
+        battlesuit="Interceptor",
+    )
+    # Medic on team 0
+    med = GameEntity(
+        game_id="test_rapid_game",
+        entity_id="M1",
+        type="player",
+        desc="Med1",
+        team_index=0,
+        level=1,
+        category=5,
+        battlesuit="Medic",
+    )
+    # Base on team 1
+    base = GameEntity(
+        game_id="test_rapid_game",
+        entity_id="B2",
+        type="standard-target",
+        desc="Base2",
+        team_index=1,
+        level=1,
+        category=9,
+        battlesuit="",
+    )
+    game.entities = [s1, s2, med, base]
+
+    events = [
+        # Mission start
+        GameEvent(
+            game_id="test_rapid_game",
+            time=0,
+            event_type="0100",
+            action="start",
+            raw_message="",
+        ),
+        # 1. Scout zaps enemy Scout (gets 1 SP)
+        GameEvent(
+            game_id="test_rapid_game",
+            time=1000,
+            event_type="0205",
+            actor_entity_id="S1",
+            target_entity_id="S2",
+            action="zaps",
+            raw_message="",
+        ),
+    ]
+
+    # We want Scout to have at least 15 SP to activate rapid fire
+    # A Scout zaps enemy Scout 15 times to get 15 SP (total 16 SP)
+    for t in range(2000, 17000, 1000):
+        events.append(
+            GameEvent(
+                game_id="test_rapid_game",
+                time=t,
+                event_type="0205",
+                actor_entity_id="S1",
+                target_entity_id="S2",
+                action="zaps",
+                raw_message="",
+            )
+        )
+
+    # Time 17000: Scout S1 has 16 SP. Activates rapid fire (costs 15 SP, has_rapid_fire becomes True)
+    events.extend(
+        [
+            GameEvent(
+                game_id="test_rapid_game",
+                time=17000,
+                event_type="0400",
+                actor_entity_id="S1",
+                action="activates rapid fire",
+                raw_message="",
+            ),
+            # Time 18000: Scout zaps enemy Scout again (with rapid fire, gets score but NO SP!)
+            GameEvent(
+                game_id="test_rapid_game",
+                time=18000,
+                event_type="0205",
+                actor_entity_id="S1",
+                target_entity_id="S2",
+                action="zaps",
+                raw_message="",
+            ),
+            # Time 19000: Scout S1 captures a base (with rapid fire, gets score but NO SP!)
+            GameEvent(
+                game_id="test_rapid_game",
+                time=19000,
+                event_type="0204",
+                actor_entity_id="S1",
+                target_entity_id="B2",
+                action="destroys base",
+                raw_message="",
+            ),
+            # Time 20000: Medic resupplies S1 (clears rapid fire!)
+            GameEvent(
+                game_id="test_rapid_game",
+                time=20000,
+                event_type="0502",
+                actor_entity_id="M1",
+                target_entity_id="S1",
+                action="resupplies lives",
+                raw_message="",
+            ),
+            # Time 30000: Scout zaps enemy Scout again (after rapid fire cleared, gets SP!)
+            GameEvent(
+                game_id="test_rapid_game",
+                time=30000,
+                event_type="0205",
+                actor_entity_id="S1",
+                target_entity_id="S2",
+                action="zaps",
+                raw_message="",
+            ),
+        ]
+    )
+    game.events = events
+
+    replay = LFReplaySystem(game)
+    replay.run()
+
+    s1_state = replay.game_state.players["S1"]
+
+    # Trace of S1 SP:
+    # 1. 16 zaps before rapid fire -> 16 SP
+    # 2. Activate rapid fire -> 16 - 15 = 1 SP. has_rapid_fire = True
+    # 3. Zap S2 under rapid fire -> still 1 SP.
+    # 4. Destroy base under rapid fire -> still 1 SP.
+    # 5. Medic resupplies S1 -> has_rapid_fire = False
+    # 6. Zap S2 post rapid fire -> 1 + 1 = 2 SP.
+    assert s1_state.has_rapid_fire is False
+    assert s1_state.special_points == 2
+
+
+def test_nuke_cancel_scenarios() -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
+
+    # Create game
+    game = LFGame(
+        game_id="test_nuke_cancel_game",
+        timestamp=datetime.now(),
+        game_type="SM5",
+    )
+    t1 = GameTeam(
+        game_id="test_nuke_cancel_game",
+        team_index=0,
+        desc="Fire Team",
+        color_enum=11,
+        color_desc="Fire",
+        color_rgb="#FF5000",
+    )
+    t2 = GameTeam(
+        game_id="test_nuke_cancel_game",
+        team_index=1,
+        desc="Earth Team",
+        color_enum=13,
+        color_desc="Earth",
+        color_rgb="#00FF00",
+    )
+    game.teams = [t1, t2]
+
+    # Entities:
+    # Cmd1 on team 0
+    c1 = GameEntity(
+        game_id="test_nuke_cancel_game",
+        entity_id="C1",
+        type="player",
+        desc="Cmd1",
+        team_index=0,
+        level=1,
+        category=1,
+        battlesuit="Maverick",
+    )
+    # Teammate Scout on team 0
+    s1 = GameEntity(
+        game_id="test_nuke_cancel_game",
+        entity_id="S1",
+        type="player",
+        desc="Sct1",
+        team_index=0,
+        level=1,
+        category=3,
+        battlesuit="Interceptor",
+    )
+    # Enemy Commander on team 1
+    c2 = GameEntity(
+        game_id="test_nuke_cancel_game",
+        entity_id="C2",
+        type="player",
+        desc="Cmd2",
+        team_index=1,
+        level=1,
+        category=1,
+        battlesuit="Maverick",
+    )
+    # Enemy Scout on team 1
+    s2 = GameEntity(
+        game_id="test_nuke_cancel_game",
+        entity_id="S2",
+        type="player",
+        desc="Sct2",
+        team_index=1,
+        level=1,
+        category=3,
+        battlesuit="Interceptor",
+    )
+    game.entities = [c1, s1, c2, s2]
+
+    events = [
+        # Mission start
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=0,
+            event_type="0100",
+            action="start",
+            raw_message="",
+        ),
+        # --- Scenario 1: Enemy downing cancel ---
+        # Time 1000: Cmd1 activates nuke
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=1000,
+            event_type="0404",
+            actor_entity_id="C1",
+            action="activates nuke",
+            raw_message="",
+        ),
+        # Time 3000: Enemy Scout S2 downs Cmd1 (0206)
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=3000,
+            event_type="0206",
+            actor_entity_id="S2",
+            target_entity_id="C1",
+            action="zaps",
+            raw_message="",
+        ),
+        # --- Scenario 2: Friendly fire downing cancel ---
+        # Time 20000: Cmd1 is back up, activates nuke again
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=20000,
+            event_type="0404",
+            actor_entity_id="C1",
+            action="activates nuke",
+            raw_message="",
+        ),
+        # Time 22000: Teammate S1 downs Cmd1 (0208)
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=22000,
+            event_type="0208",
+            actor_entity_id="S1",
+            target_entity_id="C1",
+            action="zaps",
+            raw_message="",
+        ),
+        # --- Scenario 3: Cancel by own resup ---
+        # Time 40000: Cmd1 is back up, activates nuke again
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=40000,
+            event_type="0404",
+            actor_entity_id="C1",
+            action="activates nuke",
+            raw_message="",
+        ),
+        # Time 43000: Teammate resupplies Cmd1 (0500)
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=43000,
+            event_type="0500",
+            actor_entity_id="S1",
+            target_entity_id="C1",
+            action="resupplies",
+            raw_message="",
+        ),
+        # --- Scenario 4: Cancel by enemy nuke ---
+        # Time 60000: Cmd1 is back up, activates nuke again
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=60000,
+            event_type="0404",
+            actor_entity_id="C1",
+            action="activates nuke",
+            raw_message="",
+        ),
+        # Time 61000: Enemy Commander C2 detonates nuke (0405)
+        # C2 must have activated nuke first at 55000 (successful detonate)
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=55000,
+            event_type="0404",
+            actor_entity_id="C2",
+            action="activates nuke",
+            raw_message="",
+        ),
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=61000,
+            event_type="0405",
+            actor_entity_id="C2",
+            action="detonates nuke",
+            raw_message="",
+        ),
+        # --- Scenario 5: Timeout (Nuke activated too late / expires) ---
+        # Time 80000: Cmd1 is back up, activates nuke again.
+        # No detonation or canceling event occurs. Should expire at 90000.
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=80000,
+            event_type="0404",
+            actor_entity_id="C1",
+            action="activates nuke",
+            raw_message="",
+        ),
+        # Time 95000: Just some random event to make game run past 90000
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=95000,
+            event_type="0201",
+            actor_entity_id="S1",
+            action="misses",
+            raw_message="",
+        ),
+        # Mission end
+        GameEvent(
+            game_id="test_nuke_cancel_game",
+            time=100000,
+            event_type="0101",
+            action="end",
+            raw_message="",
+        ),
+    ]
+    game.events = events
+
+    replay = LFReplaySystem(game)
+    records = replay.run()
+
+    # Verify cancels were injected and generated correct descriptions
+    # Time 3000: Cmd1 nuke canceled (downed by S2)
+    s1_cancel = next(
+        (
+            r
+            for r in records
+            if r.time == 3000 and r.description == "Cmd1 nuke canceled"
+        ),
+        None,
+    )
+    assert s1_cancel is not None
+
+    # Time 22000: Cmd1 nuke canceled by friendly fire (downed by S1)
+    s2_cancel = next(
+        (
+            r
+            for r in records
+            if r.time == 22000
+            and r.description == "Cmd1 nuke canceled by friendly fire"
+        ),
+        None,
+    )
+    assert s2_cancel is not None
+
+    # Time 43000: Cmd1 nuke canceled by own resup (resupplied by S1)
+    s3_cancel = next(
+        (
+            r
+            for r in records
+            if r.time == 43000 and r.description == "Cmd1 nuke canceled by own resup"
+        ),
+        None,
+    )
+    assert s3_cancel is not None
+
+    # Time 61000: Cmd1 nuke canceled by enemy nuke (C2 detonates)
+    s4_cancel = next(
+        (
+            r
+            for r in records
+            if r.time == 61000 and r.description == "Cmd1 nuke canceled by enemy nuke"
+        ),
+        None,
+    )
+    assert s4_cancel is not None
+
+    # Time 90000: Cmd1 nuke activated too late (expires after 10s)
+    s5_cancel = next(
+        (
+            r
+            for r in records
+            if r.time == 90000 and r.description == "Cmd1 nuke activated too late"
+        ),
+        None,
+    )
+    assert s5_cancel is not None
+
+    # Verify stat counters
+    c1_state = replay.game_state.players["C1"]
+    s2_state = replay.game_state.players["S2"]
+    c2_state = replay.game_state.players["C2"]
+
+    # C1 activated 5 times (1000, 20000, 40000, 60000, 80000)
+    assert c1_state.nukes_activated == 5
+    # C1 detonated 0 times
+    assert c1_state.nukes_detonated == 0
+    # C1 had own nuke canceled 5 times
+    assert c1_state.own_nuke_cancels == 5
+
+    # S2 zapped Cmd1 at 3000 (Scenario 1), canceling Cmd1's nuke.
+    # S2's nuke_cancels should be 1.
+    assert s2_state.nuke_cancels == 1
+
+    # C2 activated 1 time (55000), detonated 1 time (61000)
+    assert c2_state.nukes_activated == 1
+    assert c2_state.nukes_detonated == 1
+    assert c2_state.own_nuke_cancels == 0

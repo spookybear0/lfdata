@@ -27,6 +27,11 @@ class LFReplayPlayerState:
         self.downtime_ends_at = 0
         self.resettable_starts_at = 0
         self.captured_bases: set[str] = set()
+        self.has_rapid_fire = False
+        self.nukes_activated: int = 0
+        self.nukes_detonated: int = 0
+        self.nuke_cancels: int = 0
+        self.own_nuke_cancels: int = 0
 
     def is_eliminated(self) -> bool:
         """Returns True if the player has no lives left and is out of the game."""

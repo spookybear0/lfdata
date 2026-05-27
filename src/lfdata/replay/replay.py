@@ -20,6 +20,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
             game: The LF game object containing teams, entities, and events.
         """
         self.game = game
+        self._detect_and_inject_nuke_cancels()
         self.player_states: list[LFReplayPlayerState] = []
         self.team_states: list[LFReplayTeamState] = []
         self.entity_names: dict[str, str] = {e.entity_id: e.desc for e in game.entities}
@@ -95,6 +96,123 @@ class LFReplaySystem(LFReplayHandlersMixin):
 
         return self.records
 
+    def _detect_and_inject_nuke_cancels(self) -> None:
+        """Detects nuke activations that did not detonate and injects cancels.
+
+        Checks all nuke activations (0404) chronologically. If no detonation
+        (0405) by the same player occurs within 10 seconds, it scans subsequent
+        events to determine why it was canceled and at what timestamp. Then, it
+        creates and appends an inferred 'nuke_cancel' GameEvent.
+        """
+        if any(e.event_type == "nuke_cancel" for e in self.game.events):
+            return
+
+        player_teams = {
+            e.entity_id: e.team_index for e in self.game.entities if e.type == "player"
+        }
+
+        sorted_events = sorted(self.game.events, key=lambda e: e.time)
+
+        mission_end_time = None
+        for ev in sorted_events:
+            if ev.event_type == "0101":
+                mission_end_time = ev.time
+                break
+
+        injected_cancels = []
+
+        for i, ev in enumerate(sorted_events):
+            if ev.event_type != "0404":
+                continue
+
+            nuker_id = ev.actor_entity_id
+            if not nuker_id:
+                continue
+            t_act = ev.time
+
+            # Check if there is a detonation within 10s by the same actor
+            detonated = False
+            for check_ev in sorted_events[i + 1 :]:
+                if check_ev.time > t_act + 10000:
+                    break
+                if (
+                    check_ev.event_type == "0405"
+                    and check_ev.actor_entity_id == nuker_id
+                ):
+                    detonated = True
+                    break
+
+            if detonated:
+                continue
+
+            # Nuke was canceled. Determine reason and timestamp.
+            cancel_time = t_act + 10000
+            cancel_reason = "nuke activated too late"
+
+            if mission_end_time is not None and mission_end_time < cancel_time:
+                cancel_time = mission_end_time
+
+            for check_ev in sorted_events[i + 1 :]:
+                if check_ev.time > t_act + 10000:
+                    break
+
+                # 1. Player is downed
+                if (
+                    check_ev.event_type in ("0206", "0208", "0306", "0308")
+                    and check_ev.target_entity_id == nuker_id
+                ):
+                    actor_id = check_ev.actor_entity_id
+                    if actor_id:
+                        if player_teams.get(actor_id) == player_teams.get(nuker_id):
+                            cancel_reason = "nuke cancel by friendly fire"
+                        else:
+                            cancel_reason = "nuke cancel"
+                    else:
+                        cancel_reason = "nuke cancel"
+                    cancel_time = check_ev.time
+                    break
+
+                # 2. Cancel by resup
+                if (
+                    check_ev.event_type in ("0500", "0502")
+                    and check_ev.target_entity_id == nuker_id
+                ):
+                    cancel_reason = "nuke cancel by own resup"
+                    cancel_time = check_ev.time
+                    break
+
+                # 3. Cancel by enemy nuke
+                if (
+                    check_ev.event_type == "0405"
+                    and check_ev.actor_entity_id != nuker_id
+                ):
+                    actor_id = check_ev.actor_entity_id
+                    if actor_id and player_teams.get(actor_id) != player_teams.get(
+                        nuker_id
+                    ):
+                        cancel_reason = "nuke cancel by enemy nuke"
+                        cancel_time = check_ev.time
+                        break
+
+                # 4. Game end
+                if check_ev.event_type == "0101":
+                    cancel_reason = "nuke activated too late"
+                    cancel_time = check_ev.time
+                    break
+
+            inferred_ev = GameEvent(
+                game_id=self.game.game_id,
+                time=cancel_time,
+                event_type="nuke_cancel",
+                actor_entity_id=nuker_id,
+                target_entity_id=None,
+                action=cancel_reason,
+                raw_message="",
+            )
+            injected_cancels.append(inferred_ev)
+
+        self.game.events.extend(injected_cancels)
+
     def run_up_to(self, time_ms: int) -> None:
         """Simulates the game replay up to a specific millisecond timestamp.
 
@@ -139,6 +257,8 @@ class LFReplaySystem(LFReplayHandlersMixin):
             description = self._process_event_base_destroy(event)
         elif ev_type == "0405":
             description = self._process_event_nuke_detonate(event)
+        elif ev_type == "nuke_cancel":
+            description = self._process_event_nuke_cancel(event)
         elif ev_type in ["0500", "0502", "0510", "0512"]:
             description = self._process_event_resupply(event)
         else:
@@ -283,7 +403,10 @@ class LFReplaySystem(LFReplayHandlersMixin):
                         ):
                             player.captured_bases.add(base.entity_id)
                             player.score += 1001
-                            player.special_points += 5
+                            if not (
+                                player.role == LFRole.SCOUT and player.has_rapid_fire
+                            ):
+                                player.special_points += 5
 
     def _is_game_over(self) -> bool:
         """Checks if the game has ended prematurely.

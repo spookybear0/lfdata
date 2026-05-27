@@ -39,7 +39,8 @@ class LFReplayHandlersMixin:
                 actor.score -= 100
             else:
                 actor.score += 100
-                actor.special_points += 1
+                if not (actor.role == LFRole.SCOUT and actor.has_rapid_fire):
+                    actor.special_points += 1
 
             # Target always loses 20 score (unless already eliminated)
             target.score -= 20
@@ -87,7 +88,8 @@ class LFReplayHandlersMixin:
                 actor.score -= 500
             else:
                 actor.score += 500
-                actor.special_points += 2
+                if not (actor.role == LFRole.SCOUT and actor.has_rapid_fire):
+                    actor.special_points += 2
 
             # Target always loses 100 score (unless already eliminated)
             target.score -= 100
@@ -135,7 +137,8 @@ class LFReplayHandlersMixin:
             ):
                 actor.captured_bases.add(event.target_entity_id)
                 actor.score += 1001
-                actor.special_points += 5
+                if not (actor.role == LFRole.SCOUT and actor.has_rapid_fire):
+                    actor.special_points += 5
 
         if event.event_type == "0B03":
             return f"{actor_name} is awarded {target_name}"
@@ -155,6 +158,7 @@ class LFReplayHandlersMixin:
 
         if actor and not actor.is_eliminated():
             actor.score += 500
+            actor.nukes_detonated += 1
             for player in self.game_state.players.values():
                 if player.team_index != actor.team_index and not player.is_eliminated():
                     player.lives = max(0, player.lives - 3)
@@ -195,6 +199,8 @@ class LFReplayHandlersMixin:
                 target.hp = 0
                 target.downtime_ends_at = event.time + 8000
                 target.resettable_starts_at = event.time + 4000
+                if target.role == LFRole.SCOUT:
+                    target.has_rapid_fire = False
             return f"{actor_name} resupplies {target_name}"
 
         if event.event_type in ("0510", "0512"):
@@ -211,6 +217,8 @@ class LFReplayHandlersMixin:
                             player.resupply_lives_from_medic()
                         else:
                             player.resupply_shots_from_ammo()
+                        if player.role == LFRole.SCOUT:
+                            player.has_rapid_fire = False
             return f"{actor_name} resupplies team"
 
         return ""
@@ -248,11 +256,13 @@ class LFReplayHandlersMixin:
             actor = self.game_state.players.get(event.actor_entity_id)
             if actor and not actor.is_eliminated():
                 actor.special_points = max(0, actor.special_points - 15)
+                actor.has_rapid_fire = True
             return f"{actor_name} activates rapid fire"
         if event.event_type == "0404":
             actor = self.game_state.players.get(event.actor_entity_id)
             if actor and not actor.is_eliminated():
                 actor.special_points = max(0, actor.special_points - 20)
+                actor.nukes_activated += 1
             return f"{actor_name} activates nuke"
         if event.event_type == "0600":
             actor = self.game_state.players.get(event.actor_entity_id)
@@ -276,3 +286,49 @@ class LFReplayHandlersMixin:
             return f"{actor_name} earns a reward!"
 
         return event.action
+
+    def _process_event_nuke_cancel(self: "LFReplaySystem", event: GameEvent) -> str:
+        """Processes nuke cancel events and updates cancel statistics.
+
+        Increments the commander's own_nuke_cancels count. If the cancel is due
+        to being zapped or missiled by an enemy, it finds the event that caused
+        the cancel and increments the zapper's nuke_cancels count. Then, returns
+        the display string.
+
+        Args:
+            event: The nuke cancel event.
+
+        Returns:
+            str: The event description string.
+        """
+        actor = self.game_state.players.get(event.actor_entity_id)
+        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
+
+        if actor and not actor.is_eliminated():
+            actor.own_nuke_cancels += 1
+
+            if event.action == "nuke cancel":
+                # Find the zapping/missiling enemy event at the same time
+                for ev in self.game.events:
+                    if ev.time == event.time and ev.target_entity_id == actor.entity_id:
+                        if ev.event_type in ("0206", "0306"):
+                            enemy = self.game_state.players.get(ev.actor_entity_id)
+                            if enemy and not enemy.is_eliminated():
+                                enemy.nuke_cancels += 1
+                            break
+
+        action = event.action
+        if action == "nuke cancel":
+            suffix = "nuke canceled"
+        elif action == "nuke cancel by friendly fire":
+            suffix = "nuke canceled by friendly fire"
+        elif action == "nuke cancel by own resup":
+            suffix = "nuke canceled by own resup"
+        elif action == "nuke cancel by enemy nuke":
+            suffix = "nuke canceled by enemy nuke"
+        elif action == "nuke activated too late":
+            suffix = "nuke activated too late"
+        else:
+            suffix = action
+
+        return f"{actor_name} {suffix}"
