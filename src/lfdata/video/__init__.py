@@ -5,8 +5,8 @@ from lfdata.video.generator import VisualElementGenerator
 from lfdata.video.renderer import VideoGenerator
 
 __all__ = [
-    "VideoGenerator",
-    "UIElement",
-    "UIElementStyle",
-    "VisualElementGenerator",
+    'VideoGenerator',
+    'UIElement',
+    'UIElementStyle',
+    'VisualElementGenerator',
 ]

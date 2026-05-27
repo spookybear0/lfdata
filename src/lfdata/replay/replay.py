@@ -38,7 +38,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
     def _init_states(self) -> None:
         """Initializes player and team states based on game metadata."""
         player_team_indices = {
-            e.team_index for e in self.game.entities if e.type == "player"
+            e.team_index for e in self.game.entities if e.type == 'player'
         }
 
         for team in self.game.teams:
@@ -58,7 +58,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
             )
 
         for entity in self.game.entities:
-            if entity.type == "player":
+            if entity.type == 'player':
                 try:
                     role = LFRole.from_id(entity.category)
                 except ValueError:
@@ -118,7 +118,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
             int | None: The mission end timestamp in milliseconds if found.
         """
         for ev in sorted_events:
-            if ev.event_type == "0101":
+            if ev.event_type == '0101':
                 return ev.time
         return None
 
@@ -144,7 +144,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
             if check_ev.time > activate_ms + 10000:
                 break
             if (
-                check_ev.event_type == "0405"
+                check_ev.event_type == '0405'
                 and check_ev.actor_entity_id == nuker_id
             ):
                 return True
@@ -168,37 +168,37 @@ class LFReplaySystem(LFReplayHandlersMixin):
         """
         # 1. Player is downed
         if (
-            check_ev.event_type in ("0206", "0208", "0306", "0308")
+            check_ev.event_type in ('0206', '0208', '0306', '0308')
             and check_ev.target_entity_id == nuker_id
         ):
             actor_id = check_ev.actor_entity_id
             if actor_id and player_teams.get(actor_id) == player_teams.get(
                 nuker_id
             ):
-                return "nuke cancel by friendly fire"
-            return "nuke cancel"
+                return 'nuke cancel by friendly fire'
+            return 'nuke cancel'
 
         # 2. Cancel by resup
         if (
-            check_ev.event_type in ("0500", "0502")
+            check_ev.event_type in ('0500', '0502')
             and check_ev.target_entity_id == nuker_id
         ):
-            return "nuke cancel by own resup"
+            return 'nuke cancel by own resup'
 
         # 3. Cancel by enemy nuke
         if (
-            check_ev.event_type == "0405"
+            check_ev.event_type == '0405'
             and check_ev.actor_entity_id != nuker_id
         ):
             actor_id = check_ev.actor_entity_id
             if actor_id and player_teams.get(actor_id) != player_teams.get(
                 nuker_id
             ):
-                return "nuke cancel by enemy nuke"
+                return 'nuke cancel by enemy nuke'
 
         # 4. Game end
-        if check_ev.event_type == "0101":
-            return "nuke activated too late"
+        if check_ev.event_type == '0101':
+            return 'nuke activated too late'
 
         return None
 
@@ -225,7 +225,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
             tuple[int, str]: The cancel timestamp and cancel reason.
         """
         cancel_ms = activate_ms + 10000
-        cancel_reason = "nuke activated too late"
+        cancel_reason = 'nuke activated too late'
 
         if mission_end_ms is not None and mission_end_ms < cancel_ms:
             cancel_ms = mission_end_ms
@@ -264,11 +264,11 @@ class LFReplaySystem(LFReplayHandlersMixin):
         inferred_ev = GameEvent(
             game_id=self.game.game_id,
             time=cancel_ms,
-            event_type="nuke_cancel",
+            event_type='nuke_cancel',
             actor_entity_id=nuker_id,
             target_entity_id=None,
             action=cancel_reason,
-            raw_message="",
+            raw_message='',
         )
         injected_cancels.append(inferred_ev)
 
@@ -280,20 +280,20 @@ class LFReplaySystem(LFReplayHandlersMixin):
         events to determine why it was canceled and at what timestamp. Then, it
         creates and appends an inferred 'nuke_cancel' GameEvent.
         """
-        if any(e.event_type == "nuke_cancel" for e in self.game.events):
+        if any(e.event_type == 'nuke_cancel' for e in self.game.events):
             return
 
         player_teams = {
             e.entity_id: e.team_index
             for e in self.game.entities
-            if e.type == "player"
+            if e.type == 'player'
         }
         sorted_events = sorted(self.game.events, key=lambda e: e.time)
         mission_end_ms = self._find_mission_end_ms(sorted_events)
         injected_cancels = []
 
         for i, ev in enumerate(sorted_events):
-            if ev.event_type != "0404":
+            if ev.event_type != '0404':
                 continue
 
             nuker_id = ev.actor_entity_id
@@ -358,17 +358,17 @@ class LFReplaySystem(LFReplayHandlersMixin):
             str: The event description string.
         """
         ev_type = event.event_type
-        if ev_type in ["0205", "0206", "0207", "0208"]:
+        if ev_type in ['0205', '0206', '0207', '0208']:
             description = self._process_event_zap(event)
-        elif ev_type in ["0306", "0308"]:
+        elif ev_type in ['0306', '0308']:
             description = self._process_event_missile(event)
-        elif ev_type in ["0204", "0303", "0B03"]:
+        elif ev_type in ['0204', '0303', '0B03']:
             description = self._process_event_base_destroy(event)
-        elif ev_type == "0405":
+        elif ev_type == '0405':
             description = self._process_event_nuke_detonate(event)
-        elif ev_type == "nuke_cancel":
+        elif ev_type == 'nuke_cancel':
             description = self._process_event_nuke_cancel(event)
-        elif ev_type in ["0500", "0502", "0510", "0512"]:
+        elif ev_type in ['0500', '0502', '0510', '0512']:
             description = self._process_event_resupply(event)
         else:
             description = self._process_event_other(event)
@@ -411,17 +411,17 @@ class LFReplaySystem(LFReplayHandlersMixin):
         player_snap = {}
         for p in self.game_state.players.values():
             player_snap[p.entity_id] = {
-                "score": p.score,
-                "lives": p.lives,
-                "shots": p.shots,
-                "missiles": p.missiles,
-                "special_points": p.special_points,
+                'score': p.score,
+                'lives': p.lives,
+                'shots': p.shots,
+                'missiles': p.missiles,
+                'special_points': p.special_points,
             }
         team_snap = {}
         for t in self.game_state.teams.values():
             team_snap[t.team_index] = {
-                "score": t.score,
-                "ranking": t.ranking,
+                'score': t.score,
+                'ranking': t.ranking,
             }
         return player_snap, team_snap
 
@@ -444,11 +444,11 @@ class LFReplaySystem(LFReplayHandlersMixin):
             old = player_snap[p.entity_id]
             changes = {}
             for attr in [
-                "score",
-                "lives",
-                "shots",
-                "missiles",
-                "special_points",
+                'score',
+                'lives',
+                'shots',
+                'missiles',
+                'special_points',
             ]:
                 new_val = getattr(p, attr)
                 if new_val != old[attr]:
@@ -460,7 +460,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
         for t in self.game_state.teams.values():
             old = team_snap[t.team_index]
             changes = {}
-            for attr in ["score", "ranking"]:
+            for attr in ['score', 'ranking']:
                 new_val = getattr(t, attr)
                 if new_val != old[attr]:
                     changes[attr] = new_val
@@ -498,8 +498,8 @@ class LFReplaySystem(LFReplayHandlersMixin):
                 for e in self.game.entities
                 if e.type
                 in (
-                    "standard-target",
-                    "generator-target",
+                    'standard-target',
+                    'generator-target',
                 )
             ]
             for player in self.game_state.players.values():

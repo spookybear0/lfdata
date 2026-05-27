@@ -6,8 +6,8 @@ from lfdata.model import LFTeamColor
 def test_lf_team_color_enum() -> None:
     fire = LFTeamColor.FIRE
     assert fire.color_enum == 11
-    assert fire.display_name == "Fire"
-    assert fire.rgb == "#FF5000"
+    assert fire.display_name == 'Fire'
+    assert fire.rgb == '#FF5000'
 
 
 def test_lf_team_color_from_enum() -> None:

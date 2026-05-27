@@ -9,7 +9,7 @@ from lfdata.model import Base, GameEntity, LFGame, Player
 class DatabaseStorage:
     """Manages database connection and persistence of LF games."""
 
-    def __init__(self, connection_string: str = "sqlite:///lfdata.db"):
+    def __init__(self, connection_string: str = 'sqlite:///lfdata.db'):
         """Initializes the database engine and creates all tables.
 
         Args:

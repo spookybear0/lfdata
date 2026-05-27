@@ -86,7 +86,7 @@ class LFReplayTeamState:
     """Tracks a single team's state during a game replay."""
 
     def __init__(
-        self, team_index: int, name: str, color_rgb: str = "#ffffff"
+        self, team_index: int, name: str, color_rgb: str = '#ffffff'
     ) -> None:
         """Initializes the team state.
 

@@ -6,7 +6,7 @@ from lfdata.model import LFRole
 def test_lf_role_enum() -> None:
     commander = LFRole.COMMANDER
     assert commander.role_id == 1
-    assert commander.display_name == "Commander"
+    assert commander.display_name == 'Commander'
     assert commander.start_lives == 15
     assert commander.start_shots == 30
     assert commander.start_missiles == 5

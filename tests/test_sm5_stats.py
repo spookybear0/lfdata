@@ -6,21 +6,21 @@ from lfdata.model import Base, LFGame, Sm5Stats
 
 
 def test_create_sm5_stats() -> None:
-    engine = create_engine("sqlite:///:memory:")
+    engine = create_engine('sqlite:///:memory:')
     Base.metadata.create_all(engine)
 
     with Session(engine) as session:
         game = LFGame(
-            game_id="test_game_123",
+            game_id='test_game_123',
             timestamp=datetime.now(),
-            game_type="SM5",
+            game_type='SM5',
         )
         session.add(game)
         session.commit()
 
         stats = Sm5Stats(
-            game_id="test_game_123",
-            entity_id="#fwqiZ",
+            game_id='test_game_123',
+            entity_id='#fwqiZ',
             shots_hit=58,
             shots_fired=62,
             times_zapped=11,
@@ -50,7 +50,7 @@ def test_create_sm5_stats() -> None:
 
         retrieved = (
             session.query(Sm5Stats)
-            .filter_by(game_id="test_game_123", entity_id="#fwqiZ")
+            .filter_by(game_id='test_game_123', entity_id='#fwqiZ')
             .first()
         )
         assert retrieved is not None
@@ -60,7 +60,7 @@ def test_create_sm5_stats() -> None:
         assert retrieved.life_boost == 1
         assert retrieved.shots_left == 30
         assert retrieved.shot_opponent == 4
-        assert retrieved.game.game_id == "test_game_123"
+        assert retrieved.game.game_id == 'test_game_123'
         assert repr(retrieved) == (
             "Sm5Stats(id=1, game_id='test_game_123', entity_id='#fwqiZ')"
         )

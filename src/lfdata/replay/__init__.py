@@ -9,9 +9,9 @@ from lfdata.replay.state import (
 )
 
 __all__ = [
-    "LFReplaySystem",
-    "LFReplayEventRecord",
-    "LFReplayPlayerState",
-    "LFReplayTeamState",
-    "LFReplayGameState",
+    'LFReplaySystem',
+    'LFReplayEventRecord',
+    'LFReplayPlayerState',
+    'LFReplayTeamState',
+    'LFReplayGameState',
 ]

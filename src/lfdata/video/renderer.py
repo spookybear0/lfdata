@@ -57,7 +57,7 @@ class VideoGenerator:
         config = self._load_config(config_path)
 
         hud_gen = VisualElementGenerator(
-            self.game, config.get("player_name"), config
+            self.game, config.get('player_name'), config
         )
 
         actual_duration_ms = self.game.duration
@@ -72,11 +72,11 @@ class VideoGenerator:
             if not self.game.events:
                 end_ms = 0
             else:
-                extra_footage_ms = config.get("extra_footage_ms", 10000)
+                extra_footage_ms = config.get('extra_footage_ms', 10000)
                 end_ms = actual_duration_ms + extra_footage_ms
 
         start_ms = video_start_ms
-        fps = config.get("fps", 60)
+        fps = config.get('fps', 60)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -108,12 +108,12 @@ class VideoGenerator:
         import yaml
 
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 loaded = yaml.safe_load(f)
                 if isinstance(loaded, dict):
                     config = _merge_configs(DEFAULT_CONFIG, loaded)
         except Exception as e:
-            print(f"Warning: failed to load config: {e}")
+            print(f'Warning: failed to load config: {e}')
         return config
 
     def _generate_frames(
@@ -153,7 +153,7 @@ class VideoGenerator:
             f_idx, t_ms = task
             elements = hud_gen.generate_at(t_ms)
             img = self._render_frame(elements, t_ms, config)
-            img.save(temp_path / f"frame_{f_idx:06d}.png")
+            img.save(temp_path / f'frame_{f_idx:05d}.png')
 
         max_workers = min(16, max(1, os.cpu_count() or 4))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -173,16 +173,16 @@ class VideoGenerator:
         output_path.touch()
 
         cmd = [
-            "ffmpeg",
-            "-y",
-            "-framerate",
+            'ffmpeg',
+            '-y',
+            '-framerate',
             str(fps),
-            "-i",
-            str(frames_dir / "frame_%06d.png"),
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
+            '-i',
+            str(frames_dir / 'frame_%05d.png'),
+            '-c:v',
+            'libx264',
+            '-pix_fmt',
+            'yuv420p',
             str(output_path),
         ]
         try:
@@ -193,7 +193,7 @@ class VideoGenerator:
                 stderr=subprocess.PIPE,
             )
         except (subprocess.SubprocessError, FileNotFoundError) as e:
-            print(f"Warning: ffmpeg video encoding failed/skipped: {e}")
+            print(f'Warning: ffmpeg video encoding failed/skipped: {e}')
 
     def _render_frame(
         self,
@@ -211,16 +211,16 @@ class VideoGenerator:
         Returns:
             Image.Image: The rendered frame image.
         """
-        resolution = config.get("resolution", [1920, 1080])
-        bg_hex = config.get("background_color", "#00000000")
+        resolution = config.get('resolution', [1920, 1080])
+        bg_hex = config.get('background_color', '#00000000')
 
         bg_color = parse_color_with_alpha(bg_hex)
-        img = Image.new("RGBA", (resolution[0], resolution[1]), bg_color)
+        img = Image.new('RGBA', (resolution[0], resolution[1]), bg_color)
 
         for el in elements:
-            if el.element_type == "scoreboard":
+            if el.element_type == 'scoreboard':
                 self._draw_scoreboard(img, el, config)
-            elif el.element_type == "downtime_bar":
+            elif el.element_type == 'downtime_bar':
                 self._draw_downtime_bar(img, el)
 
         self._draw_text_elements(img, elements, config)
@@ -240,7 +240,7 @@ class VideoGenerator:
             config: The merged video configuration options.
         """
         teams = (
-            el.scoreboard_data.get("teams", []) if el.scoreboard_data else []
+            el.scoreboard_data.get('teams', []) if el.scoreboard_data else []
         )
         if not teams:
             return
@@ -258,22 +258,22 @@ class VideoGenerator:
 
         team_heights = {}
         for team in teams:
-            p_count = len(team.get("players", []))
-            team_heights[team["team_index"]] = (
+            p_count = len(team.get('players', []))
+            team_heights[team['team_index']] = (
                 header_h + (p_count * row_h) + totals_h
             )
 
         if len(teams) == 2:
             t0, t1 = teams[0], teams[1]
-            h0 = team_heights[t0["team_index"]]
-            h1 = team_heights[t1["team_index"]]
-            t0["y_pos"] = y_start + (t0["visual_rank"] - 1.0) * (h1 + spacing)
-            t1["y_pos"] = y_start + (t1["visual_rank"] - 1.0) * (h0 + spacing)
+            h0 = team_heights[t0['team_index']]
+            h1 = team_heights[t1['team_index']]
+            t0['y_pos'] = y_start + (t0['visual_rank'] - 1.0) * (h1 + spacing)
+            t1['y_pos'] = y_start + (t1['visual_rank'] - 1.0) * (h0 + spacing)
         else:
             curr_y = y_start
-            for t in sorted(teams, key=lambda x: x.get("visual_rank", 1.0)):
-                t["y_pos"] = curr_y
-                curr_y += team_heights[t["team_index"]] + spacing
+            for t in sorted(teams, key=lambda x: x.get('visual_rank', 1.0)):
+                t['y_pos'] = curr_y
+                curr_y += team_heights[t['team_index']] + spacing
 
         font_size = el.style.size or 20
         pixel_size = max(1, int(height * font_size / 800))
@@ -296,7 +296,7 @@ class VideoGenerator:
             self._draw_team_table(
                 image,
                 team,
-                team_heights[team["team_index"]],
+                team_heights[team['team_index']],
                 x_start,
                 font,
                 bold_font,
@@ -327,7 +327,7 @@ class VideoGenerator:
             header_h: The scoreboard header height in pixels.
             row_h: The scoreboard player row height in pixels.
         """
-        color_hex = team.get("color_rgb", "#ffffff")
+        color_hex = team.get('color_rgb', '#ffffff')
         r_sat, g_sat, b_sat = hex_to_rgb(color_hex)
         h, lightness, s = colorsys.rgb_to_hls(
             r_sat / 255.0, g_sat / 255.0, b_sat / 255.0
@@ -352,11 +352,11 @@ class VideoGenerator:
         gray_color = (128, 128, 128, 255)
         border_color = text_color
 
-        overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
         table_width = int(800 * image.width / 1920)
-        ty = int(team["y_pos"])
+        ty = int(team['y_pos'])
 
         draw.rectangle(
             [x_start, ty, x_start + table_width, ty + th],
@@ -386,11 +386,11 @@ class VideoGenerator:
         )
 
         y_row = sep_y
-        for p in team.get("players", []):
+        for p in team.get('players', []):
             p_color = text_color
-            if p.get("is_eliminated"):
+            if p.get('is_eliminated'):
                 p_color = gray_color
-            elif p.get("is_down"):
+            elif p.get('is_down'):
                 p_color = dimmed_color
 
             vals = self._compile_player_row_values(p, columns)
@@ -407,7 +407,7 @@ class VideoGenerator:
             width=2,
         )
         tot_vals = self._compile_totals_row_values(
-            team.get("totals", {}), columns
+            team.get('totals', {}), columns
         )
         for val, offset in zip(tot_vals, offsets):
             draw.text(
@@ -432,25 +432,25 @@ class VideoGenerator:
             tuple: Active column headers and their absolute pixel X coordinates.
         """
         is_sm5 = (
-            "sm5" in self.game.game_type.lower()
-            or "space marines" in self.game.game_type.lower()
+            'sm5' in self.game.game_type.lower()
+            or 'space marines' in self.game.game_type.lower()
         )
 
-        columns = ["Player"]
+        columns = ['Player']
         if is_sm5:
-            columns.append("Role")
-        columns.append("Score")
+            columns.append('Role')
+        columns.append('Score')
         if is_sm5:
-            columns.extend(["Lives", "Shots", "Missiles", "Spec"])
+            columns.extend(['Lives', 'Shots', 'Missiles', 'Spec'])
 
         col_offset_map = {
-            "Player": 20,
-            "Role": 200,
-            "Score": 350,
-            "Lives": 450,
-            "Shots": 550,
-            "Missiles": 650,
-            "Spec": 730,
+            'Player': 20,
+            'Role': 200,
+            'Score': 350,
+            'Lives': 450,
+            'Shots': 550,
+            'Missiles': 650,
+            'Spec': 730,
         }
 
         offsets = [
@@ -473,20 +473,20 @@ class VideoGenerator:
         """
         vals = []
         for col in columns:
-            if col == "Player":
-                vals.append(p.get("codename", ""))
-            elif col == "Role":
-                vals.append(p.get("role_name", ""))
-            elif col == "Score":
-                vals.append(str(p.get("score", 0)))
-            elif col == "Lives":
-                vals.append(str(p.get("lives", 0)))
-            elif col == "Shots":
-                vals.append(str(p.get("shots", 0)))
-            elif col == "Missiles":
-                vals.append(str(p.get("missiles", 0)))
-            elif col == "Spec":
-                vals.append(str(p.get("special_points", 0)))
+            if col == 'Player':
+                vals.append(p.get('codename', ''))
+            elif col == 'Role':
+                vals.append(p.get('role_name', ''))
+            elif col == 'Score':
+                vals.append(str(p.get('score', 0)))
+            elif col == 'Lives':
+                vals.append(str(p.get('lives', 0)))
+            elif col == 'Shots':
+                vals.append(str(p.get('shots', 0)))
+            elif col == 'Missiles':
+                vals.append(str(p.get('missiles', 0)))
+            elif col == 'Spec':
+                vals.append(str(p.get('special_points', 0)))
         return vals
 
     def _compile_totals_row_values(
@@ -503,20 +503,20 @@ class VideoGenerator:
         """
         vals = []
         for col in columns:
-            if col == "Player":
-                vals.append("TOTAL")
-            elif col == "Role":
-                vals.append("")
-            elif col == "Score":
-                vals.append(str(totals.get("score", 0)))
-            elif col == "Lives":
-                vals.append(str(totals.get("lives", 0)))
-            elif col == "Shots":
-                vals.append(str(totals.get("shots", 0)))
-            elif col == "Missiles":
-                vals.append(str(totals.get("missiles", 0)))
-            elif col == "Spec":
-                vals.append(str(totals.get("special_points", 0)))
+            if col == 'Player':
+                vals.append('TOTAL')
+            elif col == 'Role':
+                vals.append('')
+            elif col == 'Score':
+                vals.append(str(totals.get('score', 0)))
+            elif col == 'Lives':
+                vals.append(str(totals.get('lives', 0)))
+            elif col == 'Shots':
+                vals.append(str(totals.get('shots', 0)))
+            elif col == 'Missiles':
+                vals.append(str(totals.get('missiles', 0)))
+            elif col == 'Spec':
+                vals.append(str(totals.get('special_points', 0)))
         return vals
 
     def _draw_downtime_bar(self, image: Image.Image, el: UIElement) -> None:
@@ -542,7 +542,7 @@ class VideoGenerator:
         if total_remaining_ms <= 0:
             return
 
-        overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
         draw.rectangle(
@@ -597,29 +597,29 @@ class VideoGenerator:
         """
         width, height = image.size
 
-        anchor_map = {"left": "la", "center": "ma", "right": "ra"}
+        anchor_map = {'left': 'la', 'center': 'ma', 'right': 'ra'}
 
         for el in elements:
-            if el.element_type != "text" or not el.text:
+            if el.element_type != 'text' or not el.text:
                 continue
 
             x_coord = int(width * (el.x if el.x is not None else 0.5))
             y_coord = int(height * (el.y if el.y is not None else 0.5))
-            anchor = anchor_map.get(el.align or "left", "la")
+            anchor = anchor_map.get(el.align or 'left', 'la')
 
             pixel_size = max(1, int(height * el.style.size / 800))
 
             font_file = el.style.font
-            if el.style.style == "bold":
-                if font_file.lower() == "verdana":
-                    font_file = "verdanab.ttf"
-                elif font_file.lower() == "arial":
-                    font_file = "arialbd.ttf"
-            elif el.style.style == "italic":
-                if font_file.lower() == "verdana":
-                    font_file = "verdanai.ttf"
-                elif font_file.lower() == "arial":
-                    font_file = "ariali.ttf"
+            if el.style.style == 'bold':
+                if font_file.lower() == 'verdana':
+                    font_file = 'verdanab.ttf'
+                elif font_file.lower() == 'arial':
+                    font_file = 'arialbd.ttf'
+            elif el.style.style == 'italic':
+                if font_file.lower() == 'verdana':
+                    font_file = 'verdanai.ttf'
+                elif font_file.lower() == 'arial':
+                    font_file = 'ariali.ttf'
 
             try:
                 font = ImageFont.truetype(font_file, pixel_size)
@@ -634,7 +634,7 @@ class VideoGenerator:
                 el.style.background_color, el.alpha
             )
 
-            overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
             draw = ImageDraw.Draw(overlay)
 
             if bg_color[3] > 0:

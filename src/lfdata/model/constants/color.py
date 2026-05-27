@@ -9,9 +9,9 @@ class LFTeamColor(enum.Enum):
     Includes display names and RGB hex values.
     """
 
-    FIRE = (11, "Fire", "#FF5000")
-    EARTH = (13, "Earth", "#A0FF00")
-    NONE = (0, "None", "#808080")
+    FIRE = (11, 'Fire', '#FF5000')
+    EARTH = (13, 'Earth', '#A0FF00')
+    NONE = (0, 'None', '#808080')
 
     def __init__(self, color_enum: int, display_name: str, rgb: str):
         """Initializes the team color.
@@ -26,7 +26,7 @@ class LFTeamColor(enum.Enum):
         self.rgb = rgb
 
     @classmethod
-    def from_enum(cls, color_enum: int) -> "LFTeamColor":
+    def from_enum(cls, color_enum: int) -> 'LFTeamColor':
         """Retrieves a team color by its TDF color code.
 
         Args:
@@ -41,4 +41,4 @@ class LFTeamColor(enum.Enum):
         for color in cls:
             if color.color_enum == color_enum:
                 return color
-        raise ValueError(f"Invalid color enum: {color_enum}")
+        raise ValueError(f'Invalid color enum: {color_enum}')

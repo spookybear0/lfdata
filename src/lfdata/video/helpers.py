@@ -4,105 +4,105 @@ from typing import Any
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "font": "Verdana",
-    "style": "normal",
-    "size": 20,
-    "color": "#ffffffff",
-    "background_color": "#00000000",
-    "fade_out_time": 2.0,
-    "fps": 60,
-    "extra_footage_ms": 10000,
-    "player_name": None,
-    "resolution": [1920, 1080],
-    "animation": "ease-in-out",
-    "elements": {
-        "game_type": {
-            "enabled": True,
-            "x": 0.1,
-            "y": 0.9,
-            "align": "left",
-            "style": {"size": 10},
+    'font': 'Verdana',
+    'style': 'normal',
+    'size': 20,
+    'color': '#ffffffff',
+    'background_color': '#00000000',
+    'fade_out_time': 2.0,
+    'fps': 60,
+    'extra_footage_ms': 10000,
+    'player_name': None,
+    'resolution': [1920, 1080],
+    'animation': 'ease-in-out',
+    'elements': {
+        'game_type': {
+            'enabled': True,
+            'x': 0.1,
+            'y': 0.9,
+            'align': 'left',
+            'style': {'size': 10},
         },
-        "time": {
-            "enabled": True,
-            "x": 0.9,
-            "y": 0.5,
-            "align": "right",
-            "style": {"size": 20},
+        'time': {
+            'enabled': True,
+            'x': 0.9,
+            'y': 0.5,
+            'align': 'right',
+            'style': {'size': 20},
         },
-        "player_name": {
-            "enabled": True,
-            "x": 0.5,
-            "y": 0.05,
-            "align": "center",
-            "style": {"size": 18},
+        'player_name': {
+            'enabled': True,
+            'x': 0.5,
+            'y': 0.05,
+            'align': 'center',
+            'style': {'size': 18},
         },
-        "player_role": {
-            "enabled": True,
-            "x": 0.5,
-            "y": 0.09,
-            "align": "center",
-            "style": {"size": 16},
+        'player_role': {
+            'enabled': True,
+            'x': 0.5,
+            'y': 0.09,
+            'align': 'center',
+            'style': {'size': 16},
         },
-        "player_lives": {
-            "enabled": True,
-            "x": 0.2,
-            "y": 0.13,
-            "align": "left",
-            "style": {"size": 18},
+        'player_lives': {
+            'enabled': True,
+            'x': 0.2,
+            'y': 0.13,
+            'align': 'left',
+            'style': {'size': 18},
         },
-        "player_shots": {
-            "enabled": True,
-            "x": 0.4,
-            "y": 0.13,
-            "align": "left",
-            "style": {"size": 18},
+        'player_shots': {
+            'enabled': True,
+            'x': 0.4,
+            'y': 0.13,
+            'align': 'left',
+            'style': {'size': 18},
         },
-        "player_missiles": {
-            "enabled": True,
-            "x": 0.6,
-            "y": 0.13,
-            "align": "left",
-            "style": {"size": 18},
+        'player_missiles': {
+            'enabled': True,
+            'x': 0.6,
+            'y': 0.13,
+            'align': 'left',
+            'style': {'size': 18},
         },
-        "player_special_points": {
-            "enabled": True,
-            "x": 0.8,
-            "y": 0.13,
-            "align": "left",
-            "style": {"size": 18},
+        'player_special_points': {
+            'enabled': True,
+            'x': 0.8,
+            'y': 0.13,
+            'align': 'left',
+            'style': {'size': 18},
         },
-        "player_score": {
-            "enabled": True,
-            "x": 0.9,
-            "y": 0.05,
-            "align": "right",
-            "style": {"size": 18},
+        'player_score': {
+            'enabled': True,
+            'x': 0.9,
+            'y': 0.05,
+            'align': 'right',
+            'style': {'size': 18},
         },
-        "scoreboard": {
-            "enabled": True,
-            "x": 0.1,
-            "y": 0.6,
-            "align": "left",
+        'scoreboard': {
+            'enabled': True,
+            'x': 0.1,
+            'y': 0.6,
+            'align': 'left',
         },
-        "downtime": {
-            "enabled": True,
-            "top_left": [0.3, 0.3],
-            "bottom_right": [0.7, 0.35],
+        'downtime': {
+            'enabled': True,
+            'top_left': [0.3, 0.3],
+            'bottom_right': [0.7, 0.35],
         },
-        "player_events": {
-            "enabled": True,
-            "x": 0.5,
-            "y": 0.4,
-            "align": "center",
-            "style": {"size": 18},
+        'player_events': {
+            'enabled': True,
+            'x': 0.5,
+            'y': 0.4,
+            'align': 'center',
+            'style': {'size': 18},
         },
-        "game_events": {
-            "enabled": True,
-            "x": 0.5,
-            "y": 0.45,
-            "align": "center",
-            "style": {"size": 20},
+        'game_events': {
+            'enabled': True,
+            'x': 0.5,
+            'y': 0.45,
+            'align': 'center',
+            'style': {'size': 20},
         },
     },
 }
@@ -148,7 +148,7 @@ def hex_to_rgb(hex_str: str) -> tuple[int, int, int]:
         tuple[int, int, int]: The RGB integer values (0-255).
     """
     hex_str = hex_str.strip()
-    if hex_str.startswith("#"):
+    if hex_str.startswith('#'):
         hex_str = hex_str[1:]
     try:
         r = int(hex_str[0:2], 16)
@@ -172,7 +172,7 @@ def parse_color_with_alpha(
         tuple[int, int, int, int]: The combined RGBA color values (0-255).
     """
     color_hex = color_hex.strip()
-    if color_hex.startswith("#"):
+    if color_hex.startswith('#'):
         color_hex = color_hex[1:]
     try:
         r = int(color_hex[0:2], 16)
@@ -200,13 +200,13 @@ def apply_animation(p: float, name: str) -> float:
         float: The interpolated progress value.
     """
     p = max(0.0, min(1.0, p))
-    if name == "linear":
+    if name == 'linear':
         return p
-    if name == "ease-in":
+    if name == 'ease-in':
         return p * p
-    if name == "ease-out":
+    if name == 'ease-out':
         return p * (2.0 - p)
-    if name == "ease-in-out":
+    if name == 'ease-in-out':
         return p * p * (3.0 - 2.0 * p)
     return p
 

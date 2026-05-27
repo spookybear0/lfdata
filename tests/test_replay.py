@@ -5,7 +5,7 @@ from lfdata.replay.replay import LFReplaySystem
 
 
 def test_replay_system_with_real_game() -> None:
-    real_path = Path(__file__).parent.parent / "assets" / "sm5_sanitized.tdf"
+    real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
     importer = TdfImporter(real_path)
     game = importer.parse()
 
@@ -14,9 +14,9 @@ def test_replay_system_with_real_game() -> None:
 
     assert len(records) > 0
     assert records[0].time == 0
-    assert records[0].description == "* Mission Start *"
+    assert records[0].description == '* Mission Start *'
 
-    zap_record = next((r for r in records if "zaps" in r.description), None)
+    zap_record = next((r for r in records if 'zaps' in r.description), None)
     assert zap_record is not None
     assert len(zap_record.player_changes) > 0
 
@@ -32,61 +32,61 @@ def test_replay_system_rules() -> None:
 
     # 1. Create a game
     game = LFGame(
-        game_id="test_rule_game", timestamp=datetime.now(), game_type="SM5"
+        game_id='test_rule_game', timestamp=datetime.now(), game_type='SM5'
     )
 
     # 2. Add two teams
     t1 = GameTeam(
-        game_id="test_rule_game",
+        game_id='test_rule_game',
         team_index=0,
-        desc="Fire Team",
+        desc='Fire Team',
         color_enum=11,
-        color_desc="Fire",
-        color_rgb="#FF5000",
+        color_desc='Fire',
+        color_rgb='#FF5000',
     )
     t2 = GameTeam(
-        game_id="test_rule_game",
+        game_id='test_rule_game',
         team_index=1,
-        desc="Earth Team",
+        desc='Earth Team',
         color_enum=13,
-        color_desc="Earth",
-        color_rgb="#00FF00",
+        color_desc='Earth',
+        color_rgb='#00FF00',
     )
     game.teams = [t1, t2]
 
     # 3. Add entities
     # Commander on team 0
     cmd = GameEntity(
-        game_id="test_rule_game",
-        entity_id="C1",
-        type="player",
-        desc="Cmd1",
+        game_id='test_rule_game',
+        entity_id='C1',
+        type='player',
+        desc='Cmd1',
         team_index=0,
         level=1,
         category=1,
-        battlesuit="Maverick",
+        battlesuit='Maverick',
     )
     # Scout on team 1
     sct = GameEntity(
-        game_id="test_rule_game",
-        entity_id="S2",
-        type="player",
-        desc="Sct2",
+        game_id='test_rule_game',
+        entity_id='S2',
+        type='player',
+        desc='Sct2',
         team_index=1,
         level=1,
         category=3,
-        battlesuit="Interceptor",
+        battlesuit='Interceptor',
     )
     # Medic on team 1
     med = GameEntity(
-        game_id="test_rule_game",
-        entity_id="M2",
-        type="player",
-        desc="Med2",
+        game_id='test_rule_game',
+        entity_id='M2',
+        type='player',
+        desc='Med2',
         team_index=1,
         level=1,
         category=5,
-        battlesuit="Medic",
+        battlesuit='Medic',
     )
     game.entities = [cmd, sct, med]
 
@@ -94,67 +94,67 @@ def test_replay_system_rules() -> None:
     events = [
         # Mission start
         GameEvent(
-            game_id="test_rule_game",
+            game_id='test_rule_game',
             time=0,
-            event_type="0100",
-            action="start",
-            raw_message="",
+            event_type='0100',
+            action='start',
+            raw_message='',
         ),
         # Scout zaps Commander (DAMAGED_OPPONENT - Commander has 3 HP,
         # so HP becomes 2, no life lost)
         GameEvent(
-            game_id="test_rule_game",
+            game_id='test_rule_game',
             time=1000,
-            event_type="0205",
-            actor_entity_id="S2",
-            target_entity_id="C1",
-            action="zaps",
-            raw_message="",
+            event_type='0205',
+            actor_entity_id='S2',
+            target_entity_id='C1',
+            action='zaps',
+            raw_message='',
         ),
         # Scout zaps Commander again (DAMAGED_OPPONENT - Commander HP becomes 1)
         GameEvent(
-            game_id="test_rule_game",
+            game_id='test_rule_game',
             time=2000,
-            event_type="0205",
-            actor_entity_id="S2",
-            target_entity_id="C1",
-            action="zaps",
-            raw_message="",
+            event_type='0205',
+            actor_entity_id='S2',
+            target_entity_id='C1',
+            action='zaps',
+            raw_message='',
         ),
         # Scout zaps Commander again (DOWNED_OPPONENT - Commander HP
         # becomes 0, goes down, loses 1 life)
         GameEvent(
-            game_id="test_rule_game",
+            game_id='test_rule_game',
             time=3000,
-            event_type="0206",
-            actor_entity_id="S2",
-            target_entity_id="C1",
-            action="zaps",
-            raw_message="",
+            event_type='0206',
+            actor_entity_id='S2',
+            target_entity_id='C1',
+            action='zaps',
+            raw_message='',
         ),
         # Scout locks and missiles Commander at time 12000 (after
         # downtime ends at 11000)
         # Downs Commander, takes 2 lives
         GameEvent(
-            game_id="test_rule_game",
+            game_id='test_rule_game',
             time=12000,
-            event_type="0306",
-            actor_entity_id="S2",
-            target_entity_id="C1",
-            action="missiled",
-            raw_message="",
+            event_type='0306',
+            actor_entity_id='S2',
+            target_entity_id='C1',
+            action='missiled',
+            raw_message='',
         ),
         # Team Life Boost from Medic on team 1 (time 13000).
         # Scout is active (time 13000), so Scout is resupplied.
         # Commander is on team 0, so not resupplied.
         # Medic is the actor, so not resupplied.
         GameEvent(
-            game_id="test_rule_game",
+            game_id='test_rule_game',
             time=13000,
-            event_type="0512",
-            actor_entity_id="M2",
-            action="life_boost",
-            raw_message="",
+            event_type='0512',
+            actor_entity_id='M2',
+            action='life_boost',
+            raw_message='',
         ),
     ]
     game.events = events
@@ -164,9 +164,9 @@ def test_replay_system_rules() -> None:
 
     # Verify state after events:
     players = replay.game_state.players
-    cmd_state = players["C1"]
-    sct_state = players["S2"]
-    med_state = players["M2"]
+    cmd_state = players['C1']
+    sct_state = players['S2']
+    med_state = players['M2']
 
     # Commander started with 15 lives.
     # Got downed once at 3000 (-1 life -> 14 lives).
@@ -189,100 +189,100 @@ def test_replay_missile_decrements_and_penalties() -> None:
 
     # Create game
     game = LFGame(
-        game_id="test_m_game", timestamp=datetime.now(), game_type="SM5"
+        game_id='test_m_game', timestamp=datetime.now(), game_type='SM5'
     )
     game.penalty = -500
 
     # Teams
     t1 = GameTeam(
-        game_id="test_m_game",
+        game_id='test_m_game',
         team_index=0,
-        desc="Fire Team",
+        desc='Fire Team',
         color_enum=11,
-        color_desc="Fire",
-        color_rgb="#FF5000",
+        color_desc='Fire',
+        color_rgb='#FF5000',
     )
     game.teams = [t1]
 
     # Entities
     cmd = GameEntity(
-        game_id="test_m_game",
-        entity_id="C1",
-        type="player",
-        desc="Cmd1",
+        game_id='test_m_game',
+        entity_id='C1',
+        type='player',
+        desc='Cmd1',
         team_index=0,
         level=1,
         category=1,
-        battlesuit="Maverick",
+        battlesuit='Maverick',
     )
     base = GameEntity(
-        game_id="test_m_game",
-        entity_id="B1",
-        type="standard-target",
-        desc="Blue Base",
+        game_id='test_m_game',
+        entity_id='B1',
+        type='standard-target',
+        desc='Blue Base',
         team_index=1,
         level=1,
         category=0,
-        battlesuit="",
+        battlesuit='',
     )
     game.entities = [cmd, base]
 
     events = [
         # Mission start
         GameEvent(
-            game_id="test_m_game",
+            game_id='test_m_game',
             time=0,
-            event_type="0100",
-            action="start",
-            raw_message="",
+            event_type='0100',
+            action='start',
+            raw_message='',
         ),
         # Missile miss at 1000 ms (decrements missiles)
         GameEvent(
-            game_id="test_m_game",
+            game_id='test_m_game',
             time=1000,
-            event_type="0304",
-            actor_entity_id="C1",
-            action="miss",
-            raw_message="",
+            event_type='0304',
+            actor_entity_id='C1',
+            action='miss',
+            raw_message='',
         ),
         # Missile base miss at 2000 ms (decrements missiles)
         GameEvent(
-            game_id="test_m_game",
+            game_id='test_m_game',
             time=2000,
-            event_type="0301",
-            actor_entity_id="C1",
-            target_entity_id="B1",
-            action="miss base",
-            raw_message="",
+            event_type='0301',
+            actor_entity_id='C1',
+            target_entity_id='B1',
+            action='miss base',
+            raw_message='',
         ),
         # Missile base damage at 3000 ms (decrements missiles)
         GameEvent(
-            game_id="test_m_game",
+            game_id='test_m_game',
             time=3000,
-            event_type="0302",
-            actor_entity_id="C1",
-            target_entity_id="B1",
-            action="damage base",
-            raw_message="",
+            event_type='0302',
+            actor_entity_id='C1',
+            target_entity_id='B1',
+            action='damage base',
+            raw_message='',
         ),
         # Penalty at 4000 ms (adds penalty -500 to score)
         GameEvent(
-            game_id="test_m_game",
+            game_id='test_m_game',
             time=4000,
-            event_type="0600",
-            actor_entity_id="C1",
-            action="penalty",
-            raw_message="",
+            event_type='0600',
+            actor_entity_id='C1',
+            action='penalty',
+            raw_message='',
         ),
         # Missile base destroy at 5000 ms (decrements missiles, awards capture)
         GameEvent(
-            game_id="test_m_game",
+            game_id='test_m_game',
             time=5000,
-            event_type="0303",
-            actor_entity_id="C1",
-            target_entity_id="B1",
-            action="destroys",
-            raw_message="",
+            event_type='0303',
+            actor_entity_id='C1',
+            target_entity_id='B1',
+            action='destroys',
+            raw_message='',
         ),
     ]
     game.events = events
@@ -290,7 +290,7 @@ def test_replay_missile_decrements_and_penalties() -> None:
     replay = LFReplaySystem(game)
     replay.run()
 
-    cmd_state = replay.game_state.players["C1"]
+    cmd_state = replay.game_state.players['C1']
     # Commmander starts with 5 missiles.
     # Fires 4: at 1000 (0304), 2000 (0301), 3000 (0302), and 5000 (0303).
     # Resulting missiles: 5 - 4 = 1.
@@ -301,7 +301,7 @@ def test_replay_missile_decrements_and_penalties() -> None:
     # Penalty deducts 500 points.
     # Total score should be 501.
     assert cmd_state.score == 501
-    assert "B1" in cmd_state.captured_bases
+    assert 'B1' in cmd_state.captured_bases
 
 
 def test_medic_and_nuke_life_rules() -> None:
@@ -309,103 +309,103 @@ def test_medic_and_nuke_life_rules() -> None:
     from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
 
     game = LFGame(
-        game_id="test_medic_nuke_game",
+        game_id='test_medic_nuke_game',
         timestamp=datetime.now(),
-        game_type="SM5",
+        game_type='SM5',
     )
 
     t1 = GameTeam(
-        game_id="test_medic_nuke_game",
+        game_id='test_medic_nuke_game',
         team_index=0,
-        desc="Fire Team",
+        desc='Fire Team',
         color_enum=11,
-        color_desc="Fire",
-        color_rgb="#FF5000",
+        color_desc='Fire',
+        color_rgb='#FF5000',
     )
     t2 = GameTeam(
-        game_id="test_medic_nuke_game",
+        game_id='test_medic_nuke_game',
         team_index=1,
-        desc="Earth Team",
+        desc='Earth Team',
         color_enum=13,
-        color_desc="Earth",
-        color_rgb="#00FF00",
+        color_desc='Earth',
+        color_rgb='#00FF00',
     )
     game.teams = [t1, t2]
 
     # Commander on team 0
     cmd = GameEntity(
-        game_id="test_medic_nuke_game",
-        entity_id="C1",
-        type="player",
-        desc="Cmd1",
+        game_id='test_medic_nuke_game',
+        entity_id='C1',
+        type='player',
+        desc='Cmd1',
         team_index=0,
         level=1,
         category=1,
-        battlesuit="Maverick",
+        battlesuit='Maverick',
     )
     # Medic on team 1
     med = GameEntity(
-        game_id="test_medic_nuke_game",
-        entity_id="M2",
-        type="player",
-        desc="Med2",
+        game_id='test_medic_nuke_game',
+        entity_id='M2',
+        type='player',
+        desc='Med2',
         team_index=1,
         level=1,
         category=5,
-        battlesuit="Medic",
+        battlesuit='Medic',
     )
     # Scout on team 1
     sct = GameEntity(
-        game_id="test_medic_nuke_game",
-        entity_id="S2",
-        type="player",
-        desc="Sct2",
+        game_id='test_medic_nuke_game',
+        entity_id='S2',
+        type='player',
+        desc='Sct2',
         team_index=1,
         level=1,
         category=3,
-        battlesuit="Interceptor",
+        battlesuit='Interceptor',
     )
     game.entities = [cmd, med, sct]
 
     events = [
         # Mission start
         GameEvent(
-            game_id="test_medic_nuke_game",
+            game_id='test_medic_nuke_game',
             time=0,
-            event_type="0100",
-            action="start",
-            raw_message="",
+            event_type='0100',
+            action='start',
+            raw_message='',
         ),
         # Commander zaps Medic (Medic is downed and loses 1 life)
         GameEvent(
-            game_id="test_medic_nuke_game",
+            game_id='test_medic_nuke_game',
             time=1000,
-            event_type="0206",
-            actor_entity_id="C1",
-            target_entity_id="M2",
-            action="zaps",
-            raw_message="",
+            event_type='0206',
+            actor_entity_id='C1',
+            target_entity_id='M2',
+            action='zaps',
+            raw_message='',
         ),
         # Commander missiles Medic at time 10000 (after downtime ends)
         # Medic is downed by missile and loses 2 lives
         GameEvent(
-            game_id="test_medic_nuke_game",
+            game_id='test_medic_nuke_game',
             time=10000,
-            event_type="0306",
-            actor_entity_id="C1",
-            target_entity_id="M2",
-            action="missiled",
-            raw_message="",
+            event_type='0306',
+            actor_entity_id='C1',
+            target_entity_id='M2',
+            action='missiled',
+            raw_message='',
         ),
         # Commander detonates nuke at time 20000 (after downtime ends)
         # Scout and Medic are downed and lose 3 lives each
         GameEvent(
-            game_id="test_medic_nuke_game",
+            game_id='test_medic_nuke_game',
             time=20000,
-            event_type="0405",
-            actor_entity_id="C1",
-            action="detonates nuke",
-            raw_message="",
+            event_type='0405',
+            actor_entity_id='C1',
+            action='detonates nuke',
+            raw_message='',
         ),
     ]
     game.events = events
@@ -414,8 +414,8 @@ def test_medic_and_nuke_life_rules() -> None:
     replay.run()
 
     players = replay.game_state.players
-    med_state = players["M2"]
-    sct_state = players["S2"]
+    med_state = players['M2']
+    sct_state = players['S2']
 
     # Medic starts with 20 lives. Zap (-1), missile (-2), nuke (-3) -> 14 lives.
     assert med_state.lives == 14
@@ -433,104 +433,104 @@ def test_team_boost_not_down() -> None:
     from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
 
     game = LFGame(
-        game_id="test_boost_game",
+        game_id='test_boost_game',
         timestamp=datetime.now(),
-        game_type="SM5",
+        game_type='SM5',
     )
 
     t1 = GameTeam(
-        game_id="test_boost_game",
+        game_id='test_boost_game',
         team_index=0,
-        desc="Fire Team",
+        desc='Fire Team',
         color_enum=11,
-        color_desc="Fire",
-        color_rgb="#FF5000",
+        color_desc='Fire',
+        color_rgb='#FF5000',
     )
     t2 = GameTeam(
-        game_id="test_boost_game",
+        game_id='test_boost_game',
         team_index=1,
-        desc="Earth Team",
+        desc='Earth Team',
         color_enum=13,
-        color_desc="Earth",
-        color_rgb="#00FF00",
+        color_desc='Earth',
+        color_rgb='#00FF00',
     )
     game.teams = [t1, t2]
 
     # Commander on team 0
     cmd = GameEntity(
-        game_id="test_boost_game",
-        entity_id="C1",
-        type="player",
-        desc="Cmd1",
+        game_id='test_boost_game',
+        entity_id='C1',
+        type='player',
+        desc='Cmd1',
         team_index=0,
         level=1,
         category=1,
-        battlesuit="Maverick",
+        battlesuit='Maverick',
     )
     # Medic on team 1
     med = GameEntity(
-        game_id="test_boost_game",
-        entity_id="M2",
-        type="player",
-        desc="Med2",
+        game_id='test_boost_game',
+        entity_id='M2',
+        type='player',
+        desc='Med2',
         team_index=1,
         level=1,
         category=5,
-        battlesuit="Medic",
+        battlesuit='Medic',
     )
     # Scout 1 on team 1
     s1 = GameEntity(
-        game_id="test_boost_game",
-        entity_id="S1",
-        type="player",
-        desc="Sct1",
+        game_id='test_boost_game',
+        entity_id='S1',
+        type='player',
+        desc='Sct1',
         team_index=1,
         level=1,
         category=3,
-        battlesuit="Interceptor",
+        battlesuit='Interceptor',
     )
     # Scout 2 on team 1
     s2 = GameEntity(
-        game_id="test_boost_game",
-        entity_id="S2",
-        type="player",
-        desc="Sct2",
+        game_id='test_boost_game',
+        entity_id='S2',
+        type='player',
+        desc='Sct2',
         team_index=1,
         level=1,
         category=3,
-        battlesuit="Interceptor",
+        battlesuit='Interceptor',
     )
     game.entities = [cmd, med, s1, s2]
 
     events = [
         # Mission start
         GameEvent(
-            game_id="test_boost_game",
+            game_id='test_boost_game',
             time=0,
-            event_type="0100",
-            action="start",
-            raw_message="",
+            event_type='0100',
+            action='start',
+            raw_message='',
         ),
         # Commander zaps S2 (S2 is downed)
         GameEvent(
-            game_id="test_boost_game",
+            game_id='test_boost_game',
             time=1000,
-            event_type="0206",
-            actor_entity_id="C1",
-            target_entity_id="S2",
-            action="zaps",
-            raw_message="",
+            event_type='0206',
+            actor_entity_id='C1',
+            target_entity_id='S2',
+            action='zaps',
+            raw_message='',
         ),
         # Medic resupplies team (life boost) at time 2000
         # S1 is active, so S1's lives should increase from 15 to 18
         # S2 is down, so S2's lives should remain 14
         GameEvent(
-            game_id="test_boost_game",
+            game_id='test_boost_game',
             time=2000,
-            event_type="0512",
-            actor_entity_id="M2",
-            action="life_boost",
-            raw_message="",
+            event_type='0512',
+            actor_entity_id='M2',
+            action='life_boost',
+            raw_message='',
         ),
     ]
     game.events = events
@@ -539,8 +539,8 @@ def test_team_boost_not_down() -> None:
     replay.run()
 
     players = replay.game_state.players
-    s1_state = players["S1"]
-    s2_state = players["S2"]
+    s1_state = players['S1']
+    s2_state = players['S2']
 
     # S1 was active, should receive boost: 15 + 3 = 18 lives
     assert s1_state.lives == 18
@@ -554,93 +554,93 @@ def test_scout_rapid_fire_sp_rules() -> None:
     from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
 
     game = LFGame(
-        game_id="test_rapid_game",
+        game_id='test_rapid_game',
         timestamp=datetime.now(),
-        game_type="SM5",
+        game_type='SM5',
     )
 
     t1 = GameTeam(
-        game_id="test_rapid_game",
+        game_id='test_rapid_game',
         team_index=0,
-        desc="Fire Team",
+        desc='Fire Team',
         color_enum=11,
-        color_desc="Fire",
-        color_rgb="#FF5000",
+        color_desc='Fire',
+        color_rgb='#FF5000',
     )
     t2 = GameTeam(
-        game_id="test_rapid_game",
+        game_id='test_rapid_game',
         team_index=1,
-        desc="Earth Team",
+        desc='Earth Team',
         color_enum=13,
-        color_desc="Earth",
-        color_rgb="#00FF00",
+        color_desc='Earth',
+        color_rgb='#00FF00',
     )
     game.teams = [t1, t2]
 
     # Scout 1 on team 0
     s1 = GameEntity(
-        game_id="test_rapid_game",
-        entity_id="S1",
-        type="player",
-        desc="Sct1",
+        game_id='test_rapid_game',
+        entity_id='S1',
+        type='player',
+        desc='Sct1',
         team_index=0,
         level=1,
         category=3,
-        battlesuit="Interceptor",
+        battlesuit='Interceptor',
     )
     # Enemy Scout 2 on team 1
     s2 = GameEntity(
-        game_id="test_rapid_game",
-        entity_id="S2",
-        type="player",
-        desc="Sct2",
+        game_id='test_rapid_game',
+        entity_id='S2',
+        type='player',
+        desc='Sct2',
         team_index=1,
         level=1,
         category=3,
-        battlesuit="Interceptor",
+        battlesuit='Interceptor',
     )
     # Medic on team 0
     med = GameEntity(
-        game_id="test_rapid_game",
-        entity_id="M1",
-        type="player",
-        desc="Med1",
+        game_id='test_rapid_game',
+        entity_id='M1',
+        type='player',
+        desc='Med1',
         team_index=0,
         level=1,
         category=5,
-        battlesuit="Medic",
+        battlesuit='Medic',
     )
     # Base on team 1
     base = GameEntity(
-        game_id="test_rapid_game",
-        entity_id="B2",
-        type="standard-target",
-        desc="Base2",
+        game_id='test_rapid_game',
+        entity_id='B2',
+        type='standard-target',
+        desc='Base2',
         team_index=1,
         level=1,
         category=9,
-        battlesuit="",
+        battlesuit='',
     )
     game.entities = [s1, s2, med, base]
 
     events = [
         # Mission start
         GameEvent(
-            game_id="test_rapid_game",
+            game_id='test_rapid_game',
             time=0,
-            event_type="0100",
-            action="start",
-            raw_message="",
+            event_type='0100',
+            action='start',
+            raw_message='',
         ),
         # 1. Scout zaps enemy Scout (gets 1 SP)
         GameEvent(
-            game_id="test_rapid_game",
+            game_id='test_rapid_game',
             time=1000,
-            event_type="0205",
-            actor_entity_id="S1",
-            target_entity_id="S2",
-            action="zaps",
-            raw_message="",
+            event_type='0205',
+            actor_entity_id='S1',
+            target_entity_id='S2',
+            action='zaps',
+            raw_message='',
         ),
     ]
 
@@ -649,13 +649,13 @@ def test_scout_rapid_fire_sp_rules() -> None:
     for t in range(2000, 17000, 1000):
         events.append(
             GameEvent(
-                game_id="test_rapid_game",
+                game_id='test_rapid_game',
                 time=t,
-                event_type="0205",
-                actor_entity_id="S1",
-                target_entity_id="S2",
-                action="zaps",
-                raw_message="",
+                event_type='0205',
+                actor_entity_id='S1',
+                target_entity_id='S2',
+                action='zaps',
+                raw_message='',
             )
         )
 
@@ -664,55 +664,55 @@ def test_scout_rapid_fire_sp_rules() -> None:
     events.extend(
         [
             GameEvent(
-                game_id="test_rapid_game",
+                game_id='test_rapid_game',
                 time=17000,
-                event_type="0400",
-                actor_entity_id="S1",
-                action="activates rapid fire",
-                raw_message="",
+                event_type='0400',
+                actor_entity_id='S1',
+                action='activates rapid fire',
+                raw_message='',
             ),
             # Time 18000: Scout zaps enemy Scout again (with rapid fire,
             # gets score but NO SP!)
             GameEvent(
-                game_id="test_rapid_game",
+                game_id='test_rapid_game',
                 time=18000,
-                event_type="0205",
-                actor_entity_id="S1",
-                target_entity_id="S2",
-                action="zaps",
-                raw_message="",
+                event_type='0205',
+                actor_entity_id='S1',
+                target_entity_id='S2',
+                action='zaps',
+                raw_message='',
             ),
             # Time 19000: Scout S1 captures a base (with rapid fire,
             # gets score but NO SP!)
             GameEvent(
-                game_id="test_rapid_game",
+                game_id='test_rapid_game',
                 time=19000,
-                event_type="0204",
-                actor_entity_id="S1",
-                target_entity_id="B2",
-                action="destroys base",
-                raw_message="",
+                event_type='0204',
+                actor_entity_id='S1',
+                target_entity_id='B2',
+                action='destroys base',
+                raw_message='',
             ),
             # Time 20000: Medic resupplies S1 (clears rapid fire!)
             GameEvent(
-                game_id="test_rapid_game",
+                game_id='test_rapid_game',
                 time=20000,
-                event_type="0502",
-                actor_entity_id="M1",
-                target_entity_id="S1",
-                action="resupplies lives",
-                raw_message="",
+                event_type='0502',
+                actor_entity_id='M1',
+                target_entity_id='S1',
+                action='resupplies lives',
+                raw_message='',
             ),
             # Time 30000: Scout zaps enemy Scout again (after rapid fire
             # cleared, gets SP!)
             GameEvent(
-                game_id="test_rapid_game",
+                game_id='test_rapid_game',
                 time=30000,
-                event_type="0205",
-                actor_entity_id="S1",
-                target_entity_id="S2",
-                action="zaps",
-                raw_message="",
+                event_type='0205',
+                actor_entity_id='S1',
+                target_entity_id='S2',
+                action='zaps',
+                raw_message='',
             ),
         ]
     )
@@ -721,7 +721,7 @@ def test_scout_rapid_fire_sp_rules() -> None:
     replay = LFReplaySystem(game)
     replay.run()
 
-    s1_state = replay.game_state.players["S1"]
+    s1_state = replay.game_state.players['S1']
 
     # Trace of S1 SP:
     # 1. 16 zaps before rapid fire -> 16 SP
@@ -740,199 +740,199 @@ def test_nuke_cancel_scenarios() -> None:
 
     # Create game
     game = LFGame(
-        game_id="test_nuke_cancel_game",
+        game_id='test_nuke_cancel_game',
         timestamp=datetime.now(),
-        game_type="SM5",
+        game_type='SM5',
     )
     t1 = GameTeam(
-        game_id="test_nuke_cancel_game",
+        game_id='test_nuke_cancel_game',
         team_index=0,
-        desc="Fire Team",
+        desc='Fire Team',
         color_enum=11,
-        color_desc="Fire",
-        color_rgb="#FF5000",
+        color_desc='Fire',
+        color_rgb='#FF5000',
     )
     t2 = GameTeam(
-        game_id="test_nuke_cancel_game",
+        game_id='test_nuke_cancel_game',
         team_index=1,
-        desc="Earth Team",
+        desc='Earth Team',
         color_enum=13,
-        color_desc="Earth",
-        color_rgb="#00FF00",
+        color_desc='Earth',
+        color_rgb='#00FF00',
     )
     game.teams = [t1, t2]
 
     # Entities:
     # Cmd1 on team 0
     c1 = GameEntity(
-        game_id="test_nuke_cancel_game",
-        entity_id="C1",
-        type="player",
-        desc="Cmd1",
+        game_id='test_nuke_cancel_game',
+        entity_id='C1',
+        type='player',
+        desc='Cmd1',
         team_index=0,
         level=1,
         category=1,
-        battlesuit="Maverick",
+        battlesuit='Maverick',
     )
     # Teammate Scout on team 0
     s1 = GameEntity(
-        game_id="test_nuke_cancel_game",
-        entity_id="S1",
-        type="player",
-        desc="Sct1",
+        game_id='test_nuke_cancel_game',
+        entity_id='S1',
+        type='player',
+        desc='Sct1',
         team_index=0,
         level=1,
         category=3,
-        battlesuit="Interceptor",
+        battlesuit='Interceptor',
     )
     # Enemy Commander on team 1
     c2 = GameEntity(
-        game_id="test_nuke_cancel_game",
-        entity_id="C2",
-        type="player",
-        desc="Cmd2",
+        game_id='test_nuke_cancel_game',
+        entity_id='C2',
+        type='player',
+        desc='Cmd2',
         team_index=1,
         level=1,
         category=1,
-        battlesuit="Maverick",
+        battlesuit='Maverick',
     )
     # Enemy Scout on team 1
     s2 = GameEntity(
-        game_id="test_nuke_cancel_game",
-        entity_id="S2",
-        type="player",
-        desc="Sct2",
+        game_id='test_nuke_cancel_game',
+        entity_id='S2',
+        type='player',
+        desc='Sct2',
         team_index=1,
         level=1,
         category=3,
-        battlesuit="Interceptor",
+        battlesuit='Interceptor',
     )
     game.entities = [c1, s1, c2, s2]
 
     events = [
         # Mission start
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=0,
-            event_type="0100",
-            action="start",
-            raw_message="",
+            event_type='0100',
+            action='start',
+            raw_message='',
         ),
         # --- Scenario 1: Enemy downing cancel ---
         # Time 1000: Cmd1 activates nuke
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=1000,
-            event_type="0404",
-            actor_entity_id="C1",
-            action="activates nuke",
-            raw_message="",
+            event_type='0404',
+            actor_entity_id='C1',
+            action='activates nuke',
+            raw_message='',
         ),
         # Time 3000: Enemy Scout S2 downs Cmd1 (0206)
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=3000,
-            event_type="0206",
-            actor_entity_id="S2",
-            target_entity_id="C1",
-            action="zaps",
-            raw_message="",
+            event_type='0206',
+            actor_entity_id='S2',
+            target_entity_id='C1',
+            action='zaps',
+            raw_message='',
         ),
         # --- Scenario 2: Friendly fire downing cancel ---
         # Time 20000: Cmd1 is back up, activates nuke again
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=20000,
-            event_type="0404",
-            actor_entity_id="C1",
-            action="activates nuke",
-            raw_message="",
+            event_type='0404',
+            actor_entity_id='C1',
+            action='activates nuke',
+            raw_message='',
         ),
         # Time 22000: Teammate S1 downs Cmd1 (0208)
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=22000,
-            event_type="0208",
-            actor_entity_id="S1",
-            target_entity_id="C1",
-            action="zaps",
-            raw_message="",
+            event_type='0208',
+            actor_entity_id='S1',
+            target_entity_id='C1',
+            action='zaps',
+            raw_message='',
         ),
         # --- Scenario 3: Cancel by own resup ---
         # Time 40000: Cmd1 is back up, activates nuke again
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=40000,
-            event_type="0404",
-            actor_entity_id="C1",
-            action="activates nuke",
-            raw_message="",
+            event_type='0404',
+            actor_entity_id='C1',
+            action='activates nuke',
+            raw_message='',
         ),
         # Time 43000: Teammate resupplies Cmd1 (0500)
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=43000,
-            event_type="0500",
-            actor_entity_id="S1",
-            target_entity_id="C1",
-            action="resupplies",
-            raw_message="",
+            event_type='0500',
+            actor_entity_id='S1',
+            target_entity_id='C1',
+            action='resupplies',
+            raw_message='',
         ),
         # --- Scenario 4: Cancel by enemy nuke ---
         # Time 60000: Cmd1 is back up, activates nuke again
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=60000,
-            event_type="0404",
-            actor_entity_id="C1",
-            action="activates nuke",
-            raw_message="",
+            event_type='0404',
+            actor_entity_id='C1',
+            action='activates nuke',
+            raw_message='',
         ),
         # Time 61000: Enemy Commander C2 detonates nuke (0405)
         # C2 must have activated nuke first at 55000 (successful detonate)
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=55000,
-            event_type="0404",
-            actor_entity_id="C2",
-            action="activates nuke",
-            raw_message="",
+            event_type='0404',
+            actor_entity_id='C2',
+            action='activates nuke',
+            raw_message='',
         ),
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=61000,
-            event_type="0405",
-            actor_entity_id="C2",
-            action="detonates nuke",
-            raw_message="",
+            event_type='0405',
+            actor_entity_id='C2',
+            action='detonates nuke',
+            raw_message='',
         ),
         # --- Scenario 5: Timeout (Nuke activated too late / expires) ---
         # Time 80000: Cmd1 is back up, activates nuke again.
         # No detonation or canceling event occurs. Should expire at 90000.
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=80000,
-            event_type="0404",
-            actor_entity_id="C1",
-            action="activates nuke",
-            raw_message="",
+            event_type='0404',
+            actor_entity_id='C1',
+            action='activates nuke',
+            raw_message='',
         ),
         # Time 95000: Just some random event to make game run past 90000
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=95000,
-            event_type="0201",
-            actor_entity_id="S1",
-            action="misses",
-            raw_message="",
+            event_type='0201',
+            actor_entity_id='S1',
+            action='misses',
+            raw_message='',
         ),
         # Mission end
         GameEvent(
-            game_id="test_nuke_cancel_game",
+            game_id='test_nuke_cancel_game',
             time=100000,
-            event_type="0101",
-            action="end",
-            raw_message="",
+            event_type='0101',
+            action='end',
+            raw_message='',
         ),
     ]
     game.events = events
@@ -946,7 +946,7 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time == 3000 and r.description == "Cmd1 nuke canceled"
+            if r.time == 3000 and r.description == 'Cmd1 nuke canceled'
         ),
         None,
     )
@@ -958,7 +958,7 @@ def test_nuke_cancel_scenarios() -> None:
             r
             for r in records
             if r.time == 22000
-            and r.description == "Cmd1 nuke canceled by friendly fire"
+            and r.description == 'Cmd1 nuke canceled by friendly fire'
         ),
         None,
     )
@@ -970,7 +970,7 @@ def test_nuke_cancel_scenarios() -> None:
             r
             for r in records
             if r.time == 43000
-            and r.description == "Cmd1 nuke canceled by own resup"
+            and r.description == 'Cmd1 nuke canceled by own resup'
         ),
         None,
     )
@@ -982,7 +982,7 @@ def test_nuke_cancel_scenarios() -> None:
             r
             for r in records
             if r.time == 61000
-            and r.description == "Cmd1 nuke canceled by enemy nuke"
+            and r.description == 'Cmd1 nuke canceled by enemy nuke'
         ),
         None,
     )
@@ -994,16 +994,16 @@ def test_nuke_cancel_scenarios() -> None:
             r
             for r in records
             if r.time == 90000
-            and r.description == "Cmd1 nuke activated too late"
+            and r.description == 'Cmd1 nuke activated too late'
         ),
         None,
     )
     assert s5_cancel is not None
 
     # Verify stat counters
-    c1_state = replay.game_state.players["C1"]
-    s2_state = replay.game_state.players["S2"]
-    c2_state = replay.game_state.players["C2"]
+    c1_state = replay.game_state.players['C1']
+    s2_state = replay.game_state.players['S2']
+    c2_state = replay.game_state.players['C2']
 
     # C1 activated 5 times (1000, 20000, 40000, 60000, 80000)
     assert c1_state.nukes_activated == 5
@@ -1027,83 +1027,83 @@ def test_team_boost_rules() -> None:
     from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
 
     game = LFGame(
-        game_id="test_team_boost_rules_game",
+        game_id='test_team_boost_rules_game',
         timestamp=datetime.now(),
-        game_type="SM5",
+        game_type='SM5',
     )
     t1 = GameTeam(
-        game_id="test_team_boost_rules_game",
+        game_id='test_team_boost_rules_game',
         team_index=0,
-        desc="Fire Team",
+        desc='Fire Team',
         color_enum=11,
-        color_desc="Fire",
-        color_rgb="#FF5000",
+        color_desc='Fire',
+        color_rgb='#FF5000',
     )
     t2 = GameTeam(
-        game_id="test_team_boost_rules_game",
+        game_id='test_team_boost_rules_game',
         team_index=1,
-        desc="Earth Team",
+        desc='Earth Team',
         color_enum=13,
-        color_desc="Earth",
-        color_rgb="#00FF00",
+        color_desc='Earth',
+        color_rgb='#00FF00',
     )
     game.teams = [t1, t2]
 
     # Entities:
     # Cmd1 on team 0 (enemy target)
     c1 = GameEntity(
-        game_id="test_team_boost_rules_game",
-        entity_id="C1",
-        type="player",
-        desc="Cmd1",
+        game_id='test_team_boost_rules_game',
+        entity_id='C1',
+        type='player',
+        desc='Cmd1',
         team_index=0,
         level=1,
         category=1,
-        battlesuit="Maverick",
+        battlesuit='Maverick',
     )
     # Medic M2 on team 1
     m2 = GameEntity(
-        game_id="test_team_boost_rules_game",
-        entity_id="M2",
-        type="player",
-        desc="Med2",
+        game_id='test_team_boost_rules_game',
+        entity_id='M2',
+        type='player',
+        desc='Med2',
         team_index=1,
         level=1,
         category=5,
-        battlesuit="Medic",
+        battlesuit='Medic',
     )
     # Ammo A2 on team 1
     a2 = GameEntity(
-        game_id="test_team_boost_rules_game",
-        entity_id="A2",
-        type="player",
-        desc="Ammo2",
+        game_id='test_team_boost_rules_game',
+        entity_id='A2',
+        type='player',
+        desc='Ammo2',
         team_index=1,
         level=1,
         category=2,
-        battlesuit="Ammo",
+        battlesuit='Ammo',
     )
     # Scout S2 on team 1
     s2 = GameEntity(
-        game_id="test_team_boost_rules_game",
-        entity_id="S2",
-        type="player",
-        desc="Sct2",
+        game_id='test_team_boost_rules_game',
+        entity_id='S2',
+        type='player',
+        desc='Sct2',
         team_index=1,
         level=1,
         category=3,
-        battlesuit="Interceptor",
+        battlesuit='Interceptor',
     )
     game.entities = [c1, m2, a2, s2]
 
     # Build events to award SP to M2, A2, and S2
     events = [
         GameEvent(
-            game_id="test_team_boost_rules_game",
+            game_id='test_team_boost_rules_game',
             time=0,
-            event_type="0100",
-            action="start",
-            raw_message="",
+            event_type='0100',
+            action='start',
+            raw_message='',
         )
     ]
 
@@ -1114,39 +1114,39 @@ def test_team_boost_rules() -> None:
     for _ in range(20):
         events.append(
             GameEvent(
-                game_id="test_team_boost_rules_game",
+                game_id='test_team_boost_rules_game',
                 time=t,
-                event_type="0205",
-                actor_entity_id="M2",
-                target_entity_id="C1",
-                action="zaps",
-                raw_message="",
+                event_type='0205',
+                actor_entity_id='M2',
+                target_entity_id='C1',
+                action='zaps',
+                raw_message='',
             )
         )
         t += 100
     for _ in range(12):
         events.append(
             GameEvent(
-                game_id="test_team_boost_rules_game",
+                game_id='test_team_boost_rules_game',
                 time=t,
-                event_type="0205",
-                actor_entity_id="A2",
-                target_entity_id="C1",
-                action="zaps",
-                raw_message="",
+                event_type='0205',
+                actor_entity_id='A2',
+                target_entity_id='C1',
+                action='zaps',
+                raw_message='',
             )
         )
         t += 100
     for _ in range(16):
         events.append(
             GameEvent(
-                game_id="test_team_boost_rules_game",
+                game_id='test_team_boost_rules_game',
                 time=t,
-                event_type="0205",
-                actor_entity_id="S2",
-                target_entity_id="C1",
-                action="zaps",
-                raw_message="",
+                event_type='0205',
+                actor_entity_id='S2',
+                target_entity_id='C1',
+                action='zaps',
+                raw_message='',
             )
         )
         t += 100
@@ -1154,12 +1154,12 @@ def test_team_boost_rules() -> None:
     # S2 activates rapid fire (costs 15 SP, has 1 SP left)
     events.append(
         GameEvent(
-            game_id="test_team_boost_rules_game",
+            game_id='test_team_boost_rules_game',
             time=t,
-            event_type="0400",
-            actor_entity_id="S2",
-            action="activates rapid fire",
-            raw_message="",
+            event_type='0400',
+            actor_entity_id='S2',
+            action='activates rapid fire',
+            raw_message='',
         )
     )
     t += 1000
@@ -1167,12 +1167,12 @@ def test_team_boost_rules() -> None:
     # Medic M2 triggers life boost (0512) -> costs 15 SP, S2 receives lives
     events.append(
         GameEvent(
-            game_id="test_team_boost_rules_game",
+            game_id='test_team_boost_rules_game',
             time=t,
-            event_type="0512",
-            actor_entity_id="M2",
-            action="life_boost",
-            raw_message="",
+            event_type='0512',
+            actor_entity_id='M2',
+            action='life_boost',
+            raw_message='',
         )
     )
     t += 1000
@@ -1180,12 +1180,12 @@ def test_team_boost_rules() -> None:
     # Ammo A2 triggers ammo boost (0510) -> costs 10 SP, S2 receives shots
     events.append(
         GameEvent(
-            game_id="test_team_boost_rules_game",
+            game_id='test_team_boost_rules_game',
             time=t,
-            event_type="0510",
-            actor_entity_id="A2",
-            action="ammo_boost",
-            raw_message="",
+            event_type='0510',
+            actor_entity_id='A2',
+            action='ammo_boost',
+            raw_message='',
         )
     )
     t += 1000
@@ -1194,9 +1194,9 @@ def test_team_boost_rules() -> None:
     replay = LFReplaySystem(game)
     replay.run()
 
-    m2_state = replay.game_state.players["M2"]
-    a2_state = replay.game_state.players["A2"]
-    s2_state = replay.game_state.players["S2"]
+    m2_state = replay.game_state.players['M2']
+    a2_state = replay.game_state.players['A2']
+    s2_state = replay.game_state.players['S2']
 
     # M2 started with 20 SP, used 15 for boost -> should have 5 SP
     assert m2_state.special_points == 5

@@ -66,7 +66,7 @@ class VisualElementGenerator:
             return None
         for entity in self.game.entities:
             if (
-                entity.type == "player"
+                entity.type == 'player'
                 and entity.desc.lower() == self.player_name.lower()
             ):
                 return entity.entity_id
@@ -143,11 +143,11 @@ class VisualElementGenerator:
                     team_name = replay.game_state.teams[team_idx].name
                     self.event_log.append(
                         {
-                            "time": event_time_ms,
-                            "desc": f"Team {team_name} Eliminated",
-                            "is_important": True,
-                            "actor_id": None,
-                            "target_id": None,
+                            'time': event_time_ms,
+                            'desc': f'Team {team_name} Eliminated',
+                            'is_important': True,
+                            'actor_id': None,
+                            'target_id': None,
                         }
                     )
 
@@ -169,7 +169,7 @@ class VisualElementGenerator:
             last_trans_time_ms: Dictionary mapping team ID to last transition.
             visual_rank_at_last_trans: Dictionary mapping team ID to its rank.
         """
-        anim = self.config.get("animation", "ease-in-out")
+        anim = self.config.get('animation', 'ease-in-out')
         for tid, t in replay.game_state.teams.items():
             if t.ranking != team_ranks[tid]:
                 t_last_ms = last_trans_time_ms[tid]
@@ -246,23 +246,23 @@ class VisualElementGenerator:
             )
 
             is_important = event.event_type in [
-                "0100",
-                "0101",
-                "0404",
-                "0405",
-                "0204",
-                "0303",
-                "0B03",
-                "nuke_cancel",
+                '0100',
+                '0101',
+                '0404',
+                '0405',
+                '0204',
+                '0303',
+                '0B03',
+                'nuke_cancel',
             ]
             if desc:
                 self.event_log.append(
                     {
-                        "time": event.time,
-                        "desc": desc,
-                        "is_important": is_important,
-                        "actor_id": event.actor_entity_id,
-                        "target_id": event.target_entity_id,
+                        'time': event.time,
+                        'desc': desc,
+                        'is_important': is_important,
+                        'actor_id': event.actor_entity_id,
+                        'target_id': event.target_entity_id,
                     }
                 )
 
@@ -317,25 +317,25 @@ class VisualElementGenerator:
         Returns:
             UIElementStyle: The resolved style.
         """
-        style_config = el_config.get("style", {})
+        style_config = el_config.get('style', {})
         global_style = {
-            "font": self.config.get("font", "Verdana"),
-            "style": self.config.get("style", "normal"),
-            "size": self.config.get("size", 20),
-            "color": self.config.get("color", "#ffffffff"),
-            "background_color": self.config.get(
-                "background_color", "#00000000"
+            'font': self.config.get('font', 'Verdana'),
+            'style': self.config.get('style', 'normal'),
+            'size': self.config.get('size', 20),
+            'color': self.config.get('color', '#ffffffff'),
+            'background_color': self.config.get(
+                'background_color', '#00000000'
             ),
         }
 
-        font = style_config.get("font", global_style["font"])
-        style_type = style_config.get("style", global_style["style"])
+        font = style_config.get('font', global_style['font'])
+        style_type = style_config.get('style', global_style['style'])
         size = style_config.get(
-            "size", el_config.get("size", global_style["size"])
+            'size', el_config.get('size', global_style['size'])
         )
-        color = style_config.get("color", global_style["color"])
+        color = style_config.get('color', global_style['color'])
         bg_color = style_config.get(
-            "background_color", global_style["background_color"]
+            'background_color', global_style['background_color']
         )
 
         return UIElementStyle(
@@ -359,16 +359,16 @@ class VisualElementGenerator:
             str: The legacy position description string.
         """
         if x == 0.1 and y == 0.9:
-            return "bottom left"
+            return 'bottom left'
         if x == 0.9 and y == 0.5:
-            return "top right"
+            return 'top right'
         if x == 0.5 and (y == 0.05 or y == 0.09):
-            return "top center"
+            return 'top center'
         if x == 0.9 and y == 0.05:
-            return "top right"
+            return 'top right'
         if x in (0.2, 0.4, 0.6, 0.8) and y == 0.13:
-            return "top left"
-        return ""
+            return 'top left'
+        return ''
 
     def _create_ui_element(
         self, element_key: str, text: str | None = None, **kwargs: Any
@@ -383,21 +383,21 @@ class VisualElementGenerator:
         Returns:
             UIElement | None: The element if enabled, otherwise None.
         """
-        el_config = self.config.get("elements", {}).get(element_key, {})
-        if not el_config.get("enabled", True):
+        el_config = self.config.get('elements', {}).get(element_key, {})
+        if not el_config.get('enabled', True):
             return None
 
         style = self._resolve_element_style(el_config)
-        x = el_config.get("x")
-        y = el_config.get("y")
-        align = el_config.get("align")
-        top_left = el_config.get("top_left")
-        bottom_right = el_config.get("bottom_right")
+        x = el_config.get('x')
+        y = el_config.get('y')
+        align = el_config.get('align')
+        top_left = el_config.get('top_left')
+        bottom_right = el_config.get('bottom_right')
 
         pos_compat = self._translate_position_compat(x, y)
 
         kwargs_copy = dict(kwargs)
-        elem_type = kwargs_copy.pop("element_type", "text")
+        elem_type = kwargs_copy.pop('element_type', 'text')
 
         return UIElement(
             element_type=elem_type,
@@ -428,7 +428,7 @@ class VisualElementGenerator:
         Returns:
             dict[str, Any]: Compiled team scoreboard dictionary.
         """
-        anim = self.config.get("animation", "ease-in-out")
+        anim = self.config.get('animation', 'ease-in-out')
         trans_list = self.team_transitions.get(team.team_index, [])
         vr = get_visual_rank(
             team.team_index, time_ms, trans_list, team.ranking, anim
@@ -450,15 +450,15 @@ class VisualElementGenerator:
             codename = self.entity_names.get(p.entity_id, p.entity_id)
             players_data.append(
                 {
-                    "codename": codename,
-                    "role_name": p.role.display_name,
-                    "score": p.score,
-                    "lives": p.lives,
-                    "shots": p.shots,
-                    "missiles": p.missiles,
-                    "special_points": p.special_points,
-                    "is_down": p.is_down(time_ms),
-                    "is_eliminated": p.is_eliminated(),
+                    'codename': codename,
+                    'role_name': p.role.display_name,
+                    'score': p.score,
+                    'lives': p.lives,
+                    'shots': p.shots,
+                    'missiles': p.missiles,
+                    'special_points': p.special_points,
+                    'is_down': p.is_down(time_ms),
+                    'is_eliminated': p.is_eliminated(),
                 }
             )
             tot_score += p.score
@@ -468,18 +468,18 @@ class VisualElementGenerator:
             tot_spec += p.special_points
 
         return {
-            "team_index": team.team_index,
-            "team_name": team.name,
-            "team_score": team.score,
-            "color_rgb": team.color_rgb,
-            "players": players_data,
-            "visual_rank": vr,
-            "totals": {
-                "score": tot_score,
-                "lives": tot_lives,
-                "shots": tot_shots,
-                "missiles": tot_missiles,
-                "special_points": tot_spec,
+            'team_index': team.team_index,
+            'team_name': team.name,
+            'team_score': team.score,
+            'color_rgb': team.color_rgb,
+            'players': players_data,
+            'visual_rank': vr,
+            'totals': {
+                'score': tot_score,
+                'lives': tot_lives,
+                'shots': tot_shots,
+                'missiles': tot_missiles,
+                'special_points': tot_spec,
             },
         }
 
@@ -499,8 +499,8 @@ class VisualElementGenerator:
         Returns:
             UIElement | None: The scoreboard element if enabled.
         """
-        el_config = self.config.get("elements", {}).get("scoreboard", {})
-        if not el_config.get("enabled", True):
+        el_config = self.config.get('elements', {}).get('scoreboard', {})
+        if not el_config.get('enabled', True):
             return None
 
         teams_data = [
@@ -511,9 +511,9 @@ class VisualElementGenerator:
         ]
 
         return self._create_ui_element(
-            "scoreboard",
-            element_type="scoreboard",
-            scoreboard_data={"teams": teams_data},
+            'scoreboard',
+            element_type='scoreboard',
+            scoreboard_data={'teams': teams_data},
         )
 
     def _add_global_hud_elements(
@@ -532,9 +532,9 @@ class VisualElementGenerator:
             time_ms: Current millisecond timestamp.
         """
         el_game_type = self._create_ui_element(
-            "game_type",
-            text=f"Game Type: {self.game.game_type}",
-            element_type="text",
+            'game_type',
+            text=f'Game Type: {self.game.game_type}',
+            element_type='text',
         )
         if el_game_type:
             elements.append(el_game_type)
@@ -550,10 +550,10 @@ class VisualElementGenerator:
         total_seconds = display_ms // 1000
         minutes = total_seconds // 60
         seconds = total_seconds % 60
-        time_text = f"Time: {minutes:02d}:{seconds:02d}"
+        time_text = f'Time: {minutes:02d}:{seconds:02d}'
 
         el_time = self._create_ui_element(
-            "time", text=time_text, element_type="text"
+            'time', text=time_text, element_type='text'
         )
         if el_time:
             elements.append(el_time)
@@ -583,52 +583,52 @@ class VisualElementGenerator:
         p_state = players[self.entity_id]
 
         el_pname = self._create_ui_element(
-            "player_name",
-            text=f"Player: {self.player_name}",
-            element_type="text",
+            'player_name',
+            text=f'Player: {self.player_name}',
+            element_type='text',
         )
         if el_pname:
             elements.append(el_pname)
 
         el_prole = self._create_ui_element(
-            "player_role",
-            text=f"Role: {p_state.role.display_name}",
-            element_type="text",
+            'player_role',
+            text=f'Role: {p_state.role.display_name}',
+            element_type='text',
         )
         if el_prole:
             elements.append(el_prole)
 
         el_pscore = self._create_ui_element(
-            "player_score", text=f"Score: {p_state.score}", element_type="text"
+            'player_score', text=f'Score: {p_state.score}', element_type='text'
         )
         if el_pscore:
             elements.append(el_pscore)
 
         el_plives = self._create_ui_element(
-            "player_lives", text=f"Lives: {p_state.lives}", element_type="text"
+            'player_lives', text=f'Lives: {p_state.lives}', element_type='text'
         )
         if el_plives:
             elements.append(el_plives)
 
         el_pshots = self._create_ui_element(
-            "player_shots", text=f"Shots: {p_state.shots}", element_type="text"
+            'player_shots', text=f'Shots: {p_state.shots}', element_type='text'
         )
         if el_pshots:
             elements.append(el_pshots)
 
         if p_state.role.start_missiles > 0:
             el_pmissiles = self._create_ui_element(
-                "player_missiles",
-                text=f"Missiles: {p_state.missiles}",
-                element_type="text",
+                'player_missiles',
+                text=f'Missiles: {p_state.missiles}',
+                element_type='text',
             )
             if el_pmissiles:
                 elements.append(el_pmissiles)
 
         el_pspec = self._create_ui_element(
-            "player_special_points",
-            text=f"Special Points: {p_state.special_points}",
-            element_type="text",
+            'player_special_points',
+            text=f'Special Points: {p_state.special_points}',
+            element_type='text',
         )
         if el_pspec:
             elements.append(el_pspec)
@@ -641,8 +641,8 @@ class VisualElementGenerator:
             )
 
             el_dt = self._create_ui_element(
-                "downtime",
-                element_type="downtime_bar",
+                'downtime',
+                element_type='downtime_bar',
                 safe_ms=safe_rem_ms,
                 resettable_ms=resettable_rem_ms,
             )
@@ -658,27 +658,27 @@ class VisualElementGenerator:
             elements: List of visual elements to append to.
             time_ms: Current millisecond timestamp.
         """
-        anim = self.config.get("animation", "ease-in-out")
-        fade_time_s = self.config.get("fade_out_time", 2.0)
+        anim = self.config.get('animation', 'ease-in-out')
+        fade_time_s = self.config.get('fade_out_time', 2.0)
         fade_time_ms = int(fade_time_s * 1000)
 
         if self.entity_id:
             active_p_events = []
             for ev in self.event_log:
-                if time_ms - fade_time_ms <= ev["time"] <= time_ms:
+                if time_ms - fade_time_ms <= ev['time'] <= time_ms:
                     if (
-                        ev["actor_id"] == self.entity_id
-                        or ev["target_id"] == self.entity_id
+                        ev['actor_id'] == self.entity_id
+                        or ev['target_id'] == self.entity_id
                     ):
                         active_p_events.append(ev)
             if active_p_events:
                 recent_ev = active_p_events[-1]
-                elapsed_ms = time_ms - recent_ev["time"]
+                elapsed_ms = time_ms - recent_ev['time']
                 alpha = get_fade_alpha(elapsed_ms, fade_time_ms, anim)
                 el_pevent = self._create_ui_element(
-                    "player_events",
-                    text=recent_ev["desc"],
-                    element_type="text",
+                    'player_events',
+                    text=recent_ev['desc'],
+                    element_type='text',
                     alpha=alpha,
                 )
                 if el_pevent:
@@ -686,17 +686,17 @@ class VisualElementGenerator:
 
         active_g_events = []
         for ev in self.event_log:
-            if time_ms - fade_time_ms <= ev["time"] <= time_ms:
-                if ev["is_important"]:
+            if time_ms - fade_time_ms <= ev['time'] <= time_ms:
+                if ev['is_important']:
                     active_g_events.append(ev)
         if active_g_events:
             recent_ev = active_g_events[-1]
-            elapsed_ms = time_ms - recent_ev["time"]
+            elapsed_ms = time_ms - recent_ev['time']
             alpha = get_fade_alpha(elapsed_ms, fade_time_ms, anim)
             el_gevent = self._create_ui_element(
-                "game_events",
-                text=recent_ev["desc"],
-                element_type="text",
+                'game_events',
+                text=recent_ev['desc'],
+                element_type='text',
                 alpha=alpha,
             )
             if el_gevent:
