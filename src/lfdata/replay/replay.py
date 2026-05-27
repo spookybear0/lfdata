@@ -93,7 +93,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
 
             record = LFReplayEventRecord(
                 event_id=event.id or 0,
-                time=event.time,
+                time_ms=event.time,
                 description=description,
                 player_changes=player_changes,
                 team_changes=team_changes,

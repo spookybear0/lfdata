@@ -15,7 +15,9 @@ class LFTeamType(enum.Enum):
     EARTH = (1, 'Earth Team', LFTeamColor.EARTH)
     NEUTRAL = (2, 'Neutral', LFTeamColor.NONE)
 
-    def __init__(self, team_index: int, display_name: str, color: LFTeamColor):
+    def __init__(
+        self, team_index: int, display_name: str, color: LFTeamColor
+    ) -> None:
         """Initializes the team type.
 
         Args:

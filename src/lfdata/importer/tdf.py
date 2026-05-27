@@ -18,8 +18,46 @@ from lfdata.model import (
 class TdfImporter:
     """Importer and parser for TDF files."""
 
-    def __init__(self, file_path: str | Path):
+    def __init__(self, file_path: str | Path) -> None:
+        """Initializes the TDF importer.
+
+        Args:
+            file_path: The file path to the TDF file.
+        """
         self.file_path = Path(file_path)
+
+    def _parse_line(self, line: str, game: LFGame) -> None:
+        """Parses a single line of TDF data and updates the game object.
+
+        Args:
+            line: The raw text line to parse.
+            game: The LFGame object to update.
+        """
+        line = line.strip()
+        if not line or line.startswith(';'):
+            return
+        parts = line.split('\t')
+        if not parts:
+            return
+        rec_type = parts[0]
+        if rec_type == '0':
+            self._parse_info(parts, game)
+        elif rec_type == '1':
+            self._parse_mission(parts, game)
+        elif rec_type == '2':
+            self._parse_team(parts, game)
+        elif rec_type == '3':
+            self._parse_entity_start(parts, game)
+        elif rec_type == '4':
+            self._parse_event(parts, game)
+        elif rec_type == '5':
+            self._parse_score(parts, game)
+        elif rec_type == '6':
+            self._parse_entity_end(parts, game)
+        elif rec_type == '7':
+            self._parse_sm5_stats(parts, game)
+        elif rec_type == '9':
+            self._parse_player_state(parts, game)
 
     def parse(self) -> LFGame:
         """Parses the TDF file and returns a LFGame data object.
@@ -47,31 +85,7 @@ class TdfImporter:
                 content = f.read()
 
         for line in content.splitlines():
-            line = line.strip()
-            if not line or line.startswith(';'):
-                continue
-            parts = line.split('\t')
-            if not parts:
-                continue
-            rec_type = parts[0]
-            if rec_type == '0':
-                self._parse_info(parts, game)
-            elif rec_type == '1':
-                self._parse_mission(parts, game)
-            elif rec_type == '2':
-                self._parse_team(parts, game)
-            elif rec_type == '3':
-                self._parse_entity_start(parts, game)
-            elif rec_type == '4':
-                self._parse_event(parts, game)
-            elif rec_type == '5':
-                self._parse_score(parts, game)
-            elif rec_type == '6':
-                self._parse_entity_end(parts, game)
-            elif rec_type == '7':
-                self._parse_sm5_stats(parts, game)
-            elif rec_type == '9':
-                self._parse_player_state(parts, game)
+            self._parse_line(line, game)
 
         return game
 

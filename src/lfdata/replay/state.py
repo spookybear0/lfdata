@@ -109,7 +109,7 @@ class LFReplayGameState:
         self,
         players: list[LFReplayPlayerState],
         teams: list[LFReplayTeamState],
-    ):
+    ) -> None:
         """Initializes the game state.
 
         Args:

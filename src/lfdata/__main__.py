@@ -95,7 +95,7 @@ def main() -> None:
         replay = LFReplaySystem(game)
         records = replay.run()
         for record in records:
-            print(f'{record.time:07d}\t{record.description}')
+            print(f'{record.time_ms:07d}\t{record.description}')
 
     if args.state_at is not None:
         replay = LFReplaySystem(game)

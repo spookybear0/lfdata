@@ -13,7 +13,7 @@ class LFTeamColor(enum.Enum):
     EARTH = (13, 'Earth', '#A0FF00')
     NONE = (0, 'None', '#808080')
 
-    def __init__(self, color_enum: int, display_name: str, rgb: str):
+    def __init__(self, color_enum: int, display_name: str, rgb: str) -> None:
         """Initializes the team color.
 
         Args:

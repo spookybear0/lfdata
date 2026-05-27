@@ -13,7 +13,7 @@ def test_replay_system_with_real_game() -> None:
     records = replay.run()
 
     assert len(records) > 0
-    assert records[0].time == 0
+    assert records[0].time_ms == 0
     assert records[0].description == '* Mission Start *'
 
     zap_record = next((r for r in records if 'zaps' in r.description), None)
@@ -946,7 +946,7 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time == 3000 and r.description == 'Cmd1 nuke canceled'
+            if r.time_ms == 3000 and r.description == 'Cmd1 nuke canceled'
         ),
         None,
     )
@@ -957,7 +957,7 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time == 22000
+            if r.time_ms == 22000
             and r.description == 'Cmd1 nuke canceled by friendly fire'
         ),
         None,
@@ -969,7 +969,7 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time == 43000
+            if r.time_ms == 43000
             and r.description == 'Cmd1 nuke canceled by own resup'
         ),
         None,
@@ -981,7 +981,7 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time == 61000
+            if r.time_ms == 61000
             and r.description == 'Cmd1 nuke canceled by enemy nuke'
         ),
         None,
@@ -993,7 +993,7 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time == 90000
+            if r.time_ms == 90000
             and r.description == 'Cmd1 nuke activated too late'
         ),
         None,

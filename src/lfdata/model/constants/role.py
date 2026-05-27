@@ -27,7 +27,7 @@ class LFRole(enum.Enum):
         medic_lives_gain: int,
         ammo_shots_gain: int,
         max_hp: int,
-    ):
+    ) -> None:
         """Initializes the role with game balancing parameters.
 
         Args:
