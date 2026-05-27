@@ -25,7 +25,9 @@ class ScoreHistory(Base):
     new_score: Mapped[int] = mapped_column(Integer)
 
     # Relationships
-    game: Mapped["LFGame"] = relationship("LFGame", back_populates="score_history")
+    game: Mapped["LFGame"] = relationship(
+        "LFGame", back_populates="score_history"
+    )
 
     def __repr__(self) -> str:
         """Returns a string representation of the score history entry.

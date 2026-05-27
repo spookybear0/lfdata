@@ -41,5 +41,5 @@ def test_create_score_history() -> None:
         assert retrieved.new_score == 500
         assert retrieved.game.game_id == "test_game_123"
         assert repr(retrieved) == (
-            "ScoreHistory(id=1, entity_id='#1u96zA', " "delta_score=500, new_score=500)"
+            "ScoreHistory(id=1, entity_id='#1u96zA', delta_score=500, new_score=500)"
         )

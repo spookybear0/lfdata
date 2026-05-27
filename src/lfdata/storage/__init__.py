@@ -64,7 +64,9 @@ class DatabaseStorage:
                 session.query(LFGame)
                 .options(
                     selectinload(LFGame.teams),
-                    selectinload(LFGame.entities).selectinload(GameEntity.player),
+                    selectinload(LFGame.entities).selectinload(
+                        GameEntity.player
+                    ),
                     selectinload(LFGame.events),
                     selectinload(LFGame.sm5_stats),
                     selectinload(LFGame.score_history),

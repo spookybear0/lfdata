@@ -5,7 +5,9 @@ from lfdata.video.generator import VisualElementGenerator
 
 def test_visual_element_generator() -> None:
     # 1. Create mock game
-    game = LFGame(game_id="test_vid_game", timestamp=datetime.now(), game_type="SM5")
+    game = LFGame(
+        game_id="test_vid_game", timestamp=datetime.now(), game_type="SM5"
+    )
 
     # Teams
     t1 = GameTeam(
@@ -142,7 +144,9 @@ def test_visual_element_generator_new_features() -> None:
     texts_capped = [el.text for el in elements_capped if el.text]
     assert "Time: 00:04" in texts_capped
 
-    sb_el = next((el for el in elements if el.element_type == "scoreboard"), None)
+    sb_el = next(
+        (el for el in elements if el.element_type == "scoreboard"), None
+    )
     assert sb_el is not None
     assert sb_el.scoreboard_data is not None
     teams = sb_el.scoreboard_data["teams"]

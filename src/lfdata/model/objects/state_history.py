@@ -23,7 +23,9 @@ class PlayerStateHistory(Base):
     state: Mapped[int] = mapped_column(Integer)
 
     # Relationships
-    game: Mapped["LFGame"] = relationship("LFGame", back_populates="state_history")
+    game: Mapped["LFGame"] = relationship(
+        "LFGame", back_populates="state_history"
+    )
 
     def __repr__(self) -> str:
         """Returns a string representation of the state history entry.

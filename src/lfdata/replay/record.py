@@ -33,7 +33,4 @@ class LFReplayEventRecord:
         Returns:
             str: The string representation.
         """
-        return (
-            f"LFReplayEventRecord(time={self.time}, "
-            f"description='{self.description}')"
-        )
+        return f"LFReplayEventRecord(time={self.time}, description='{self.description}')"

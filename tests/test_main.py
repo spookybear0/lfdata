@@ -72,3 +72,30 @@ def test_main_image_at(tmp_path: Path) -> None:
         main()
         expected_file = tmp_path / "image_at_5000.png"
         assert expected_file.exists()
+
+
+def test_main_video_frame_generation_range() -> None:
+    real_path = Path(__file__).parent.parent / "assets" / "sm5_sanitized.tdf"
+    with patch(
+        "lfdata.video.VideoGenerator._generate_frames"
+    ) as mock_gen_frames:
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "lfdata",
+                "--input_tdf",
+                str(real_path),
+                "--video_player",
+                "Cyborg",
+                "--video_start_ms",
+                "1000",
+                "--video_end_ms",
+                "2000",
+            ],
+        ):
+            main()
+            mock_gen_frames.assert_called_once()
+            _, kwargs = mock_gen_frames.call_args
+            assert kwargs["start_ms"] == 1000
+            assert kwargs["end_ms"] == 2000

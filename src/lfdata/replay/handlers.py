@@ -23,7 +23,9 @@ class LFReplayHandlersMixin:
         target = self.game_state.players.get(event.target_entity_id)
 
         self._decrement_shots(event.actor_entity_id)
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
+        actor_name = self.entity_names.get(
+            event.actor_entity_id, event.actor_entity_id
+        )
         target_name = self.entity_names.get(
             event.target_entity_id, event.target_entity_id
         )
@@ -51,8 +53,8 @@ class LFReplayHandlersMixin:
                     if not target.is_down(event.time):
                         target.lives = max(0, target.lives - 1)
                 target.hp = 0
-                target.downtime_ends_at = event.time + 8000
-                target.resettable_starts_at = event.time + 4000
+                target.downtime_ends_at_ms = event.time + 8000
+                target.resettable_starts_at_ms = event.time + 4000
             else:
                 target.hp = max(1, target.hp - 1)
 
@@ -72,7 +74,9 @@ class LFReplayHandlersMixin:
 
         self._decrement_missiles(event.actor_entity_id)
 
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
+        actor_name = self.entity_names.get(
+            event.actor_entity_id, event.actor_entity_id
+        )
         target_name = self.entity_names.get(
             event.target_entity_id, event.target_entity_id
         )
@@ -99,12 +103,14 @@ class LFReplayHandlersMixin:
                 if not target.is_down(event.time):
                     target.lives = max(0, target.lives - 2)
             target.hp = 0
-            target.downtime_ends_at = event.time + 8000
-            target.resettable_starts_at = event.time + 4000
+            target.downtime_ends_at_ms = event.time + 8000
+            target.resettable_starts_at_ms = event.time + 4000
 
         return f"{actor_name} missiles {target_name}"
 
-    def _process_event_base_destroy(self: "LFReplaySystem", event: GameEvent) -> str:
+    def _process_event_base_destroy(
+        self: "LFReplaySystem", event: GameEvent
+    ) -> str:
         """Processes base destruction/capture events.
 
         Args:
@@ -114,7 +120,9 @@ class LFReplayHandlersMixin:
             str: The event description string.
         """
         actor = self.game_state.players.get(event.actor_entity_id)
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
+        actor_name = self.entity_names.get(
+            event.actor_entity_id, event.actor_entity_id
+        )
         target_name = self.entity_names.get(
             event.target_entity_id, event.target_entity_id
         )
@@ -144,7 +152,9 @@ class LFReplayHandlersMixin:
             return f"{actor_name} is awarded {target_name}"
         return f"{actor_name} destroys {target_name}"
 
-    def _process_event_nuke_detonate(self: "LFReplaySystem", event: GameEvent) -> str:
+    def _process_event_nuke_detonate(
+        self: "LFReplaySystem", event: GameEvent
+    ) -> str:
         """Processes nuke detonation events.
 
         Args:
@@ -154,21 +164,28 @@ class LFReplayHandlersMixin:
             str: The event description string.
         """
         actor = self.game_state.players.get(event.actor_entity_id)
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
+        actor_name = self.entity_names.get(
+            event.actor_entity_id, event.actor_entity_id
+        )
 
         if actor and not actor.is_eliminated():
             actor.score += 500
             actor.nukes_detonated += 1
             for player in self.game_state.players.values():
-                if player.team_index != actor.team_index and not player.is_eliminated():
+                if (
+                    player.team_index != actor.team_index
+                    and not player.is_eliminated()
+                ):
                     player.lives = max(0, player.lives - 3)
                     player.hp = 0
-                    player.downtime_ends_at = event.time + 8000
-                    player.resettable_starts_at = event.time + 4000
+                    player.downtime_ends_at_ms = event.time + 8000
+                    player.resettable_starts_at_ms = event.time + 4000
 
         return f"{actor_name} detonates nuke"
 
-    def _process_event_resupply(self: "LFReplaySystem", event: GameEvent) -> str:
+    def _process_event_resupply(
+        self: "LFReplaySystem", event: GameEvent
+    ) -> str:
         """Processes resupply (ammo, lives, team boosts) events.
 
         Args:
@@ -178,7 +195,9 @@ class LFReplayHandlersMixin:
             str: The event description string.
         """
         actor = self.game_state.players.get(event.actor_entity_id)
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
+        actor_name = self.entity_names.get(
+            event.actor_entity_id, event.actor_entity_id
+        )
         target_name = self.entity_names.get(
             event.target_entity_id, event.target_entity_id
         )
@@ -190,15 +209,17 @@ class LFReplayHandlersMixin:
             target = self.game_state.players.get(event.target_entity_id)
             if target and not target.is_eliminated():
                 is_medic = (
-                    actor.role == LFRole.MEDIC if actor else event.event_type == "0502"
+                    actor.role == LFRole.MEDIC
+                    if actor
+                    else event.event_type == "0502"
                 )
                 if is_medic:
                     target.resupply_lives_from_medic()
                 else:
                     target.resupply_shots_from_ammo()
                 target.hp = 0
-                target.downtime_ends_at = event.time + 8000
-                target.resettable_starts_at = event.time + 4000
+                target.downtime_ends_at_ms = event.time + 8000
+                target.resettable_starts_at_ms = event.time + 4000
                 if target.role == LFRole.SCOUT:
                     target.has_rapid_fire = False
             return f"{actor_name} resupplies {target_name}"
@@ -206,7 +227,9 @@ class LFReplayHandlersMixin:
         if event.event_type in ("0510", "0512"):
             if actor:
                 is_medic = (
-                    actor.role == LFRole.MEDIC if actor else event.event_type == "0512"
+                    actor.role == LFRole.MEDIC
+                    if actor
+                    else event.event_type == "0512"
                 )
                 if is_medic:
                     actor.special_points = max(0, actor.special_points - 15)
@@ -237,7 +260,9 @@ class LFReplayHandlersMixin:
         Returns:
             str: The event description string.
         """
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
+        actor_name = self.entity_names.get(
+            event.actor_entity_id, event.actor_entity_id
+        )
         target_name = self.entity_names.get(
             event.target_entity_id, event.target_entity_id
         )
@@ -292,7 +317,9 @@ class LFReplayHandlersMixin:
 
         return event.action
 
-    def _process_event_nuke_cancel(self: "LFReplaySystem", event: GameEvent) -> str:
+    def _process_event_nuke_cancel(
+        self: "LFReplaySystem", event: GameEvent
+    ) -> str:
         """Processes nuke cancel events and updates cancel statistics.
 
         Increments the commander's own_nuke_cancels count. If the cancel is due
@@ -307,7 +334,9 @@ class LFReplayHandlersMixin:
             str: The event description string.
         """
         actor = self.game_state.players.get(event.actor_entity_id)
-        actor_name = self.entity_names.get(event.actor_entity_id, event.actor_entity_id)
+        actor_name = self.entity_names.get(
+            event.actor_entity_id, event.actor_entity_id
+        )
 
         if actor and not actor.is_eliminated():
             actor.own_nuke_cancels += 1
@@ -315,9 +344,14 @@ class LFReplayHandlersMixin:
             if event.action == "nuke cancel":
                 # Find the zapping/missiling enemy event at the same time
                 for ev in self.game.events:
-                    if ev.time == event.time and ev.target_entity_id == actor.entity_id:
+                    if (
+                        ev.time == event.time
+                        and ev.target_entity_id == actor.entity_id
+                    ):
                         if ev.event_type in ("0206", "0306"):
-                            enemy = self.game_state.players.get(ev.actor_entity_id)
+                            enemy = self.game_state.players.get(
+                                ev.actor_entity_id
+                            )
                             if enemy and not enemy.is_eliminated():
                                 enemy.nuke_cancels += 1
                             break

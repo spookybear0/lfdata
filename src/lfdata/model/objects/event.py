@@ -20,8 +20,12 @@ class GameEvent(Base):
     )
     time: Mapped[int] = mapped_column(Integer)
     event_type: Mapped[str] = mapped_column(String(10))
-    actor_entity_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    target_entity_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    actor_entity_id: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
+    target_entity_id: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
     action: Mapped[str] = mapped_column(String(100))
     raw_message: Mapped[str] = mapped_column(String(255))
 

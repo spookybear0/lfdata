@@ -7,7 +7,9 @@ from lfdata.replay.state import (
 
 
 def test_player_state_initialization() -> None:
-    commander = LFReplayPlayerState(entity_id="#1", role=LFRole.COMMANDER, team_index=0)
+    commander = LFReplayPlayerState(
+        entity_id="#1", role=LFRole.COMMANDER, team_index=0
+    )
     assert commander.lives == 15
     assert commander.shots == 30
     assert commander.missiles == 5
@@ -32,7 +34,9 @@ def test_team_state_initialization() -> None:
 
 
 def test_game_state_updates() -> None:
-    p1 = LFReplayPlayerState(entity_id="#1", role=LFRole.COMMANDER, team_index=0)
+    p1 = LFReplayPlayerState(
+        entity_id="#1", role=LFRole.COMMANDER, team_index=0
+    )
     p2 = LFReplayPlayerState(entity_id="#2", role=LFRole.SCOUT, team_index=1)
     t1 = LFReplayTeamState(team_index=0, name="Fire Team")
     t2 = LFReplayTeamState(team_index=1, name="Earth Team")
@@ -56,8 +60,8 @@ def test_player_downtime_and_elimination() -> None:
 
     # Put player down
     p.hp = 0
-    p.downtime_ends_at = 8000
-    p.resettable_starts_at = 4000
+    p.downtime_ends_at_ms = 8000
+    p.resettable_starts_at_ms = 4000
 
     assert p.is_down(3000)  # In safe phase
     assert p.is_down(5000)  # In resettable phase

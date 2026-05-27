@@ -7,220 +7,13 @@ from lfdata.model import LFGame
 from lfdata.replay import LFReplaySystem
 from lfdata.replay.state import LFReplayPlayerState, LFReplayTeamState
 from lfdata.video.element import UIElement, UIElementStyle
-
-DEFAULT_CONFIG: dict[str, Any] = {
-    "font": "Verdana",
-    "style": "normal",
-    "size": 20,
-    "color": "#ffffffff",
-    "background_color": "#00000000",
-    "fade_out_time": 2.0,
-    "fps": 60,
-    "extra_footage_ms": 10000,
-    "player_name": None,
-    "resolution": [1920, 1080],
-    "animation": "ease-in-out",
-    "elements": {
-        "game_type": {
-            "enabled": True,
-            "x": 0.1,
-            "y": 0.9,
-            "align": "left",
-            "style": {"size": 10},
-        },
-        "time": {
-            "enabled": True,
-            "x": 0.9,
-            "y": 0.5,
-            "align": "right",
-            "style": {"size": 20},
-        },
-        "player_name": {
-            "enabled": True,
-            "x": 0.5,
-            "y": 0.05,
-            "align": "center",
-            "style": {"size": 18},
-        },
-        "player_role": {
-            "enabled": True,
-            "x": 0.5,
-            "y": 0.09,
-            "align": "center",
-            "style": {"size": 16},
-        },
-        "player_lives": {
-            "enabled": True,
-            "x": 0.2,
-            "y": 0.13,
-            "align": "left",
-            "style": {"size": 18},
-        },
-        "player_shots": {
-            "enabled": True,
-            "x": 0.4,
-            "y": 0.13,
-            "align": "left",
-            "style": {"size": 18},
-        },
-        "player_missiles": {
-            "enabled": True,
-            "x": 0.6,
-            "y": 0.13,
-            "align": "left",
-            "style": {"size": 18},
-        },
-        "player_special_points": {
-            "enabled": True,
-            "x": 0.8,
-            "y": 0.13,
-            "align": "left",
-            "style": {"size": 18},
-        },
-        "player_score": {
-            "enabled": True,
-            "x": 0.9,
-            "y": 0.05,
-            "align": "right",
-            "style": {"size": 18},
-        },
-        "scoreboard": {
-            "enabled": True,
-            "x": 0.1,
-            "y": 0.6,
-            "align": "left",
-        },
-        "downtime": {
-            "enabled": True,
-            "top_left": [0.3, 0.3],
-            "bottom_right": [0.7, 0.35],
-        },
-        "player_events": {
-            "enabled": True,
-            "x": 0.5,
-            "y": 0.4,
-            "align": "center",
-            "style": {"size": 18},
-        },
-        "game_events": {
-            "enabled": True,
-            "x": 0.5,
-            "y": 0.45,
-            "align": "center",
-            "style": {"size": 20},
-        },
-    },
-}
-
-
-def _merge_configs(base: dict[str, Any], loaded: dict[str, Any]) -> dict[str, Any]:
-    """Recursively merges a loaded configuration dict into base defaults.
-
-    Args:
-        base: The default configuration dictionary.
-        loaded: The user-supplied configuration dictionary.
-
-    Returns:
-        dict[str, Any]: The recursively merged configuration dictionary.
-    """
-    result: dict[str, Any] = {}
-    for k, v in base.items():
-        if k in loaded:
-            if isinstance(v, dict) and isinstance(loaded[k], dict):
-                result[k] = _merge_configs(v, loaded[k])
-            else:
-                result[k] = loaded[k]
-        else:
-            if isinstance(v, dict):
-                result[k] = _merge_configs(v, {})
-            else:
-                result[k] = v
-    for k, v in loaded.items():
-        if k not in result:
-            result[k] = v
-    return result
-
-
-def apply_animation(p: float, name: str) -> float:
-    """Applies the specified animation function to progress value p.
-
-    Args:
-        p: Linear progress value from 0.0 to 1.0.
-        name: Name of the animation function.
-
-    Returns:
-        float: The interpolated progress value.
-    """
-    p = max(0.0, min(1.0, p))
-    if name == "linear":
-        return p
-    elif name == "ease-in":
-        return p * p
-    elif name == "ease-out":
-        return p * (2.0 - p)
-    elif name == "ease-in-out":
-        return p * p * (3.0 - 2.0 * p)
-    else:
-        return p
-
-
-def get_fade_alpha(elapsed_ms: int, total_ms: int, function_name: str) -> float:
-    """Calculates fade-out alpha (1.0 to 0.0) based on elapsed duration.
-
-    Args:
-        elapsed_ms: Milliseconds elapsed since the fade started.
-        total_ms: Total duration of the fade in milliseconds.
-        function_name: Name of the animation function.
-
-    Returns:
-        float: The calculated alpha opacity value.
-    """
-    if total_ms <= 0:
-        return 0.0
-    p = elapsed_ms / total_ms
-    p = max(0.0, min(1.0, p))
-    return 1.0 - apply_animation(p, function_name)
-
-
-def get_visual_rank(
-    team_idx: int,
-    t: int,
-    transitions: list[tuple[int, float, int]],
-    final_rank: int,
-    animation_func: str,
-) -> float:
-    """Calculates the animated visual rank of a team at time t.
-
-    Args:
-        team_idx: The team index.
-        t: The current millisecond timestamp.
-        transitions: The precomputed rank swap transitions.
-        final_rank: The final target rank of the team.
-        animation_func: The animation function to apply.
-
-    Returns:
-        float: The animated visual rank position.
-    """
-    last_trans = None
-    for trans in transitions:
-        if trans[0] <= t:
-            last_trans = trans
-        else:
-            break
-
-    if last_trans is None:
-        if transitions:
-            return transitions[0][1]
-        return float(final_rank)
-
-    t_start, v_start, target_rank = last_trans
-    elapsed = t - t_start
-    if elapsed < 1000:
-        p = elapsed / 1000.0
-        p_anim = apply_animation(p, animation_func)
-        return v_start + (target_rank - v_start) * p_anim
-    else:
-        return float(target_rank)
+from lfdata.video.helpers import (
+    DEFAULT_CONFIG,
+    _merge_configs,
+    apply_animation,
+    get_fade_alpha,
+    get_visual_rank,
+)
 
 
 class VisualElementGenerator:
@@ -236,7 +29,8 @@ class VisualElementGenerator:
 
         Args:
             game: The LFGame data object.
-            player_name: The codename of the player to focus the HUD on, or None.
+            player_name: The codename of the player to focus the HUD on,
+                or None.
             config: Optional configuration override dictionary.
         """
         self.game = game
@@ -258,7 +52,7 @@ class VisualElementGenerator:
         ] = []
         self.event_log: list[dict[str, Any]] = []
         self.team_transitions: dict[int, list[tuple[int, float, int]]] = {}
-        self.game_ended_at: int | None = None
+        self.game_ended_at_ms: int | None = None
 
         self._precompute_replay()
 
@@ -295,8 +89,8 @@ class VisualElementGenerator:
         new_p.special_points = p.special_points
         new_p.max_hp = p.max_hp
         new_p.hp = p.hp
-        new_p.downtime_ends_at = p.downtime_ends_at
-        new_p.resettable_starts_at = p.resettable_starts_at
+        new_p.downtime_ends_at_ms = p.downtime_ends_at_ms
+        new_p.resettable_starts_at_ms = p.resettable_starts_at_ms
         new_p.captured_bases = set(p.captured_bases)
         new_p.has_rapid_fire = p.has_rapid_fire
         new_p.nukes_activated = p.nukes_activated
@@ -319,6 +113,84 @@ class VisualElementGenerator:
         new_t.ranking = t.ranking
         return new_t
 
+    def _log_eliminated_teams(
+        self,
+        replay: LFReplaySystem,
+        event_time_ms: int,
+        eliminated_teams: set[int],
+    ) -> None:
+        """Checks for newly eliminated teams and adds an event log entry.
+
+        Args:
+            replay: The replay system instance.
+            event_time_ms: The current event timestamp in milliseconds.
+            eliminated_teams: The set of already eliminated team indices.
+        """
+        active_teams = {
+            p.team_index for p in replay.game_state.players.values()
+        }
+        for team_idx in active_teams:
+            if team_idx not in eliminated_teams:
+                team_players = [
+                    p
+                    for p in replay.game_state.players.values()
+                    if p.team_index == team_idx
+                ]
+                if team_players and all(
+                    p.is_eliminated() for p in team_players
+                ):
+                    eliminated_teams.add(team_idx)
+                    team_name = replay.game_state.teams[team_idx].name
+                    self.event_log.append(
+                        {
+                            "time": event_time_ms,
+                            "desc": f"Team {team_name} Eliminated",
+                            "is_important": True,
+                            "actor_id": None,
+                            "target_id": None,
+                        }
+                    )
+
+    def _track_rank_transitions(
+        self,
+        replay: LFReplaySystem,
+        event_time_ms: int,
+        team_ranks: dict[int, int],
+        last_trans_time_ms: dict[int, int],
+        visual_rank_at_last_trans: dict[int, float],
+    ) -> None:
+        """Tracks visual rank changes for each team and updates transitions
+        list.
+
+        Args:
+            replay: The replay system instance.
+            event_time_ms: The current event timestamp in milliseconds.
+            team_ranks: Dictionary mapping team ID to its current rank.
+            last_trans_time_ms: Dictionary mapping team ID to last transition.
+            visual_rank_at_last_trans: Dictionary mapping team ID to its rank.
+        """
+        anim = self.config.get("animation", "ease-in-out")
+        for tid, t in replay.game_state.teams.items():
+            if t.ranking != team_ranks[tid]:
+                t_last_ms = last_trans_time_ms[tid]
+                v_last = visual_rank_at_last_trans[tid]
+                target_last = team_ranks[tid]
+
+                elapsed_ms = event_time_ms - t_last_ms
+                if elapsed_ms < 1000:
+                    p = elapsed_ms / 1000.0
+                    p_anim = apply_animation(p, anim)
+                    v_curr = v_last + (target_last - v_last) * p_anim
+                else:
+                    v_curr = float(target_last)
+
+                self.team_transitions[tid].append(
+                    (event_time_ms, v_curr, t.ranking)
+                )
+                last_trans_time_ms[tid] = event_time_ms
+                visual_rank_at_last_trans[tid] = v_curr
+                team_ranks[tid] = t.ranking
+
     def _precompute_replay(self) -> None:
         """Runs simulation once, caching snapshots and transition times."""
         replay = LFReplaySystem(self.game)
@@ -338,9 +210,11 @@ class VisualElementGenerator:
             )
         )
 
-        team_ranks = {tid: t.ranking for tid, t in replay.game_state.teams.items()}
+        team_ranks = {
+            tid: t.ranking for tid, t in replay.game_state.teams.items()
+        }
         self.team_transitions = {tid: [] for tid in team_ranks}
-        last_trans_time = {tid: 0 for tid in team_ranks}
+        last_trans_time_ms = {tid: 0 for tid in team_ranks}
         visual_rank_at_last_trans = {
             tid: float(t.ranking) for tid, t in replay.game_state.teams.items()
         }
@@ -355,27 +229,7 @@ class VisualElementGenerator:
             desc = replay._dispatch_event(event)
             replay.game_state.update_team_scores_and_rankings()
 
-            # Check newly eliminated teams
-            active_teams = {p.team_index for p in replay.game_state.players.values()}
-            for team_idx in active_teams:
-                if team_idx not in eliminated_teams:
-                    team_players = [
-                        p
-                        for p in replay.game_state.players.values()
-                        if p.team_index == team_idx
-                    ]
-                    if team_players and all(p.is_eliminated() for p in team_players):
-                        eliminated_teams.add(team_idx)
-                        team_name = replay.game_state.teams[team_idx].name
-                        self.event_log.append(
-                            {
-                                "time": event.time,
-                                "desc": f"Team {team_name} Eliminated",
-                                "is_important": True,
-                                "actor_id": None,
-                                "target_id": None,
-                            }
-                        )
+            self._log_eliminated_teams(replay, event.time, eliminated_teams)
 
             self.snapshots.append(
                 (
@@ -412,29 +266,15 @@ class VisualElementGenerator:
                     }
                 )
 
-            # Check rank transitions
-            for tid, t in replay.game_state.teams.items():
-                if t.ranking != team_ranks[tid]:
-                    t_last = last_trans_time[tid]
-                    v_last = visual_rank_at_last_trans[tid]
-                    target_last = team_ranks[tid]
+            self._track_rank_transitions(
+                replay=replay,
+                event_time_ms=event.time,
+                team_ranks=team_ranks,
+                last_trans_time_ms=last_trans_time_ms,
+                visual_rank_at_last_trans=visual_rank_at_last_trans,
+            )
 
-                    elapsed = event.time - t_last
-                    if elapsed < 1000:
-                        p = elapsed / 1000.0
-                        p_anim = apply_animation(
-                            p, self.config.get("animation", "ease-in-out")
-                        )
-                        v_curr = v_last + (target_last - v_last) * p_anim
-                    else:
-                        v_curr = float(target_last)
-
-                    self.team_transitions[tid].append((event.time, v_curr, t.ranking))
-                    last_trans_time[tid] = event.time
-                    visual_rank_at_last_trans[tid] = v_curr
-                    team_ranks[tid] = t.ranking
-
-        self.game_ended_at = replay.game_ended_at
+        self.game_ended_at_ms = replay.game_ended_at_ms
 
     def _get_state_at(
         self, time_ms: int
@@ -454,13 +294,81 @@ class VisualElementGenerator:
         else:
             _, players, teams = self.snapshots[idx - 1]
 
-        cloned_players = {pid: self._copy_player_state(p) for pid, p in players.items()}
-        cloned_teams = {tid: self._copy_team_state(t) for tid, t in teams.items()}
+        cloned_players = {
+            pid: self._copy_player_state(p) for pid, p in players.items()
+        }
+        cloned_teams = {
+            tid: self._copy_team_state(t) for tid, t in teams.items()
+        }
 
         for player in cloned_players.values():
             player.update_downtime(time_ms)
 
         return cloned_players, cloned_teams
+
+    def _resolve_element_style(
+        self, el_config: dict[str, Any]
+    ) -> UIElementStyle:
+        """Resolves styling properties from configuration.
+
+        Args:
+            el_config: Dictionary containing element configuration.
+
+        Returns:
+            UIElementStyle: The resolved style.
+        """
+        style_config = el_config.get("style", {})
+        global_style = {
+            "font": self.config.get("font", "Verdana"),
+            "style": self.config.get("style", "normal"),
+            "size": self.config.get("size", 20),
+            "color": self.config.get("color", "#ffffffff"),
+            "background_color": self.config.get(
+                "background_color", "#00000000"
+            ),
+        }
+
+        font = style_config.get("font", global_style["font"])
+        style_type = style_config.get("style", global_style["style"])
+        size = style_config.get(
+            "size", el_config.get("size", global_style["size"])
+        )
+        color = style_config.get("color", global_style["color"])
+        bg_color = style_config.get(
+            "background_color", global_style["background_color"]
+        )
+
+        return UIElementStyle(
+            font=font,
+            style=style_type,
+            size=size,
+            color=color,
+            background_color=bg_color,
+        )
+
+    def _translate_position_compat(
+        self, x: float | None, y: float | None
+    ) -> str:
+        """Translates coordinate pairs to legacy position strings for compat.
+
+        Args:
+            x: Relative X coordinate.
+            y: Relative Y coordinate.
+
+        Returns:
+            str: The legacy position description string.
+        """
+        if x == 0.1 and y == 0.9:
+            return "bottom left"
+        if x == 0.9 and y == 0.5:
+            return "top right"
+        if x == 0.5 and (y == 0.05 or y == 0.09):
+            return "top center"
+        if x == 0.9 and y == 0.05:
+            return "top right"
+        if x in (0.2, 0.4, 0.6, 0.8) and y == 0.13:
+            return "top left"
+        return ""
 
     def _create_ui_element(
         self, element_key: str, text: str | None = None, **kwargs: Any
@@ -479,57 +387,14 @@ class VisualElementGenerator:
         if not el_config.get("enabled", True):
             return None
 
-        style_config = el_config.get("style", {})
-        global_style = {
-            "font": self.config.get("font", "Verdana"),
-            "style": self.config.get("style", "normal"),
-            "size": self.config.get("size", 20),
-            "color": self.config.get("color", "#ffffffff"),
-            "background_color": self.config.get("background_color", "#00000000"),
-        }
-
-        font = style_config.get("font", global_style["font"])
-        style_type = style_config.get("style", global_style["style"])
-        size = style_config.get("size", el_config.get("size", global_style["size"]))
-        color = style_config.get("color", global_style["color"])
-        bg_color = style_config.get(
-            "background_color", global_style["background_color"]
-        )
-
-        style = UIElementStyle(
-            font=font,
-            style=style_type,
-            size=size,
-            color=color,
-            background_color=bg_color,
-        )
-
+        style = self._resolve_element_style(el_config)
         x = el_config.get("x")
         y = el_config.get("y")
         align = el_config.get("align")
         top_left = el_config.get("top_left")
         bottom_right = el_config.get("bottom_right")
 
-        # Backward compatibility translation:
-        pos_compat = ""
-        if x == 0.1 and y == 0.9:
-            pos_compat = "bottom left"
-        elif x == 0.9 and y == 0.5:
-            pos_compat = "top right"
-        elif x == 0.5 and y == 0.05:
-            pos_compat = "top center"
-        elif x == 0.5 and y == 0.09:
-            pos_compat = "top center"
-        elif x == 0.9 and y == 0.05:
-            pos_compat = "top right"
-        elif x == 0.2 and y == 0.13:
-            pos_compat = "top left"
-        elif x == 0.4 and y == 0.13:
-            pos_compat = "top left"
-        elif x == 0.6 and y == 0.13:
-            pos_compat = "top left"
-        elif x == 0.8 and y == 0.13:
-            pos_compat = "top left"
+        pos_compat = self._translate_position_compat(x, y)
 
         kwargs_copy = dict(kwargs)
         elem_type = kwargs_copy.pop("element_type", "text")
@@ -546,6 +411,77 @@ class VisualElementGenerator:
             bottom_right=bottom_right,
             **kwargs_copy,
         )
+
+    def _build_team_scoreboard_data(
+        self,
+        team: LFReplayTeamState,
+        players: dict[str, LFReplayPlayerState],
+        time_ms: int,
+    ) -> dict[str, Any]:
+        """Builds scoreboard stats data for a single team.
+
+        Args:
+            team: The team state object.
+            players: Dictionary containing player states.
+            time_ms: Current millisecond timestamp.
+
+        Returns:
+            dict[str, Any]: Compiled team scoreboard dictionary.
+        """
+        anim = self.config.get("animation", "ease-in-out")
+        trans_list = self.team_transitions.get(team.team_index, [])
+        vr = get_visual_rank(
+            team.team_index, time_ms, trans_list, team.ranking, anim
+        )
+
+        players_data = []
+        team_players = [
+            p for p in players.values() if p.team_index == team.team_index
+        ]
+        team_players.sort(key=lambda p: p.score, reverse=True)
+
+        tot_score = 0
+        tot_lives = 0
+        tot_shots = 0
+        tot_missiles = 0
+        tot_spec = 0
+
+        for p in team_players:
+            codename = self.entity_names.get(p.entity_id, p.entity_id)
+            players_data.append(
+                {
+                    "codename": codename,
+                    "role_name": p.role.display_name,
+                    "score": p.score,
+                    "lives": p.lives,
+                    "shots": p.shots,
+                    "missiles": p.missiles,
+                    "special_points": p.special_points,
+                    "is_down": p.is_down(time_ms),
+                    "is_eliminated": p.is_eliminated(),
+                }
+            )
+            tot_score += p.score
+            tot_lives += p.lives
+            tot_shots += p.shots
+            tot_missiles += p.missiles
+            tot_spec += p.special_points
+
+        return {
+            "team_index": team.team_index,
+            "team_name": team.name,
+            "team_score": team.score,
+            "color_rgb": team.color_rgb,
+            "players": players_data,
+            "visual_rank": vr,
+            "totals": {
+                "score": tot_score,
+                "lives": tot_lives,
+                "shots": tot_shots,
+                "missiles": tot_missiles,
+                "special_points": tot_spec,
+            },
+        }
 
     def _create_scoreboard_element(
         self,
@@ -567,65 +503,12 @@ class VisualElementGenerator:
         if not el_config.get("enabled", True):
             return None
 
-        anim = self.config.get("animation", "ease-in-out")
-        teams_data = []
-
-        for team in teams.values():
-            trans_list = self.team_transitions.get(team.team_index, [])
-            vr = get_visual_rank(
-                team.team_index, time_ms, trans_list, team.ranking, anim
+        teams_data = [
+            self._build_team_scoreboard_data(
+                team=t, players=players, time_ms=time_ms
             )
-
-            players_data = []
-            team_players = [
-                p for p in players.values() if p.team_index == team.team_index
-            ]
-            team_players.sort(key=lambda p: p.score, reverse=True)
-
-            tot_score = 0
-            tot_lives = 0
-            tot_shots = 0
-            tot_missiles = 0
-            tot_spec = 0
-
-            for p in team_players:
-                codename = self.entity_names.get(p.entity_id, p.entity_id)
-                players_data.append(
-                    {
-                        "codename": codename,
-                        "role_name": p.role.display_name,
-                        "score": p.score,
-                        "lives": p.lives,
-                        "shots": p.shots,
-                        "missiles": p.missiles,
-                        "special_points": p.special_points,
-                        "is_down": p.is_down(time_ms),
-                        "is_eliminated": p.is_eliminated(),
-                    }
-                )
-                tot_score += p.score
-                tot_lives += p.lives
-                tot_shots += p.shots
-                tot_missiles += p.missiles
-                tot_spec += p.special_points
-
-            teams_data.append(
-                {
-                    "team_index": team.team_index,
-                    "team_name": team.name,
-                    "team_score": team.score,
-                    "color_rgb": team.color_rgb,
-                    "players": players_data,
-                    "visual_rank": vr,
-                    "totals": {
-                        "score": tot_score,
-                        "lives": tot_lives,
-                        "shots": tot_shots,
-                        "missiles": tot_missiles,
-                        "special_points": tot_spec,
-                    },
-                }
-            )
+            for t in teams.values()
+        ]
 
         return self._create_ui_element(
             "scoreboard",
@@ -633,18 +516,21 @@ class VisualElementGenerator:
             scoreboard_data={"teams": teams_data},
         )
 
-    def generate_at(self, time_ms: int) -> list[UIElement]:
-        """Generates HUD elements at a specific millisecond timestamp.
+    def _add_global_hud_elements(
+        self,
+        elements: list[UIElement],
+        teams: dict[int, LFReplayTeamState],
+        players: dict[str, LFReplayPlayerState],
+        time_ms: int,
+    ) -> None:
+        """Adds global HUD elements like game type, time, and scoreboard.
 
         Args:
-            time_ms: The millisecond timestamp.
-
-        Returns:
-            list[UIElement]: The list of active UI HUD elements.
+            elements: List of visual elements to append to.
+            teams: Current team states.
+            players: Current player states.
+            time_ms: Current millisecond timestamp.
         """
-        players, teams = self._get_state_at(time_ms)
-        elements: list[UIElement] = []
-
         el_game_type = self._create_ui_element(
             "game_type",
             text=f"Game Type: {self.game.game_type}",
@@ -653,95 +539,125 @@ class VisualElementGenerator:
         if el_game_type:
             elements.append(el_game_type)
 
-        actual_duration = self.game.duration
-        if self.game_ended_at is not None:
-            actual_duration = self.game_ended_at
+        actual_duration_ms = self.game.duration
+        if self.game_ended_at_ms is not None:
+            actual_duration_ms = self.game_ended_at_ms
 
         display_ms = time_ms
-        if actual_duration is not None and display_ms > actual_duration:
-            display_ms = actual_duration
+        if actual_duration_ms is not None and display_ms > actual_duration_ms:
+            display_ms = actual_duration_ms
 
         total_seconds = display_ms // 1000
         minutes = total_seconds // 60
         seconds = total_seconds % 60
         time_text = f"Time: {minutes:02d}:{seconds:02d}"
 
-        el_time = self._create_ui_element("time", text=time_text, element_type="text")
+        el_time = self._create_ui_element(
+            "time", text=time_text, element_type="text"
+        )
         if el_time:
             elements.append(el_time)
 
-        el_sb = self._create_scoreboard_element(teams, players, time_ms)
+        el_sb = self._create_scoreboard_element(
+            teams=teams, players=players, time_ms=time_ms
+        )
         if el_sb:
             elements.append(el_sb)
 
-        if self.entity_id and self.entity_id in players:
-            p_state = players[self.entity_id]
+    def _add_player_hud_elements(
+        self,
+        elements: list[UIElement],
+        players: dict[str, LFReplayPlayerState],
+        time_ms: int,
+    ) -> None:
+        """Adds player-specific HUD elements if a target player is focused.
 
-            el_pname = self._create_ui_element(
-                "player_name",
-                text=f"Player: {self.player_name}",
+        Args:
+            elements: List of visual elements to append to.
+            players: Current player states.
+            time_ms: Current millisecond timestamp.
+        """
+        if not self.entity_id or self.entity_id not in players:
+            return
+
+        p_state = players[self.entity_id]
+
+        el_pname = self._create_ui_element(
+            "player_name",
+            text=f"Player: {self.player_name}",
+            element_type="text",
+        )
+        if el_pname:
+            elements.append(el_pname)
+
+        el_prole = self._create_ui_element(
+            "player_role",
+            text=f"Role: {p_state.role.display_name}",
+            element_type="text",
+        )
+        if el_prole:
+            elements.append(el_prole)
+
+        el_pscore = self._create_ui_element(
+            "player_score", text=f"Score: {p_state.score}", element_type="text"
+        )
+        if el_pscore:
+            elements.append(el_pscore)
+
+        el_plives = self._create_ui_element(
+            "player_lives", text=f"Lives: {p_state.lives}", element_type="text"
+        )
+        if el_plives:
+            elements.append(el_plives)
+
+        el_pshots = self._create_ui_element(
+            "player_shots", text=f"Shots: {p_state.shots}", element_type="text"
+        )
+        if el_pshots:
+            elements.append(el_pshots)
+
+        if p_state.role.start_missiles > 0:
+            el_pmissiles = self._create_ui_element(
+                "player_missiles",
+                text=f"Missiles: {p_state.missiles}",
                 element_type="text",
             )
-            if el_pname:
-                elements.append(el_pname)
+            if el_pmissiles:
+                elements.append(el_pmissiles)
 
-            el_prole = self._create_ui_element(
-                "player_role",
-                text=f"Role: {p_state.role.display_name}",
-                element_type="text",
+        el_pspec = self._create_ui_element(
+            "player_special_points",
+            text=f"Special Points: {p_state.special_points}",
+            element_type="text",
+        )
+        if el_pspec:
+            elements.append(el_pspec)
+
+        if p_state.is_down(time_ms):
+            safe_rem_ms = max(0, p_state.resettable_starts_at_ms - time_ms)
+            res_base_ms = max(time_ms, p_state.resettable_starts_at_ms)
+            resettable_rem_ms = max(
+                0, p_state.downtime_ends_at_ms - res_base_ms
             )
-            if el_prole:
-                elements.append(el_prole)
 
-            el_pscore = self._create_ui_element(
-                "player_score", text=f"Score: {p_state.score}", element_type="text"
+            el_dt = self._create_ui_element(
+                "downtime",
+                element_type="downtime_bar",
+                safe_ms=safe_rem_ms,
+                resettable_ms=resettable_rem_ms,
             )
-            if el_pscore:
-                elements.append(el_pscore)
+            if el_dt:
+                elements.append(el_dt)
 
-            el_plives = self._create_ui_element(
-                "player_lives", text=f"Lives: {p_state.lives}", element_type="text"
-            )
-            if el_plives:
-                elements.append(el_plives)
+    def _add_event_hud_elements(
+        self, elements: list[UIElement], time_ms: int
+    ) -> None:
+        """Adds recent event notification HUD elements.
 
-            el_pshots = self._create_ui_element(
-                "player_shots", text=f"Shots: {p_state.shots}", element_type="text"
-            )
-            if el_pshots:
-                elements.append(el_pshots)
-
-            if p_state.role.start_missiles > 0:
-                el_pmissiles = self._create_ui_element(
-                    "player_missiles",
-                    text=f"Missiles: {p_state.missiles}",
-                    element_type="text",
-                )
-                if el_pmissiles:
-                    elements.append(el_pmissiles)
-
-            el_pspec = self._create_ui_element(
-                "player_special_points",
-                text=f"Special Points: {p_state.special_points}",
-                element_type="text",
-            )
-            if el_pspec:
-                elements.append(el_pspec)
-
-            if p_state.is_down(time_ms):
-                safe_rem = max(0, p_state.resettable_starts_at - time_ms)
-                res_base = max(time_ms, p_state.resettable_starts_at)
-                resettable_rem = max(0, p_state.downtime_ends_at - res_base)
-
-                el_dt = self._create_ui_element(
-                    "downtime",
-                    element_type="downtime_bar",
-                    safe_ms=safe_rem,
-                    resettable_ms=resettable_rem,
-                )
-                if el_dt:
-                    elements.append(el_dt)
-
+        Args:
+            elements: List of visual elements to append to.
+            time_ms: Current millisecond timestamp.
+        """
         anim = self.config.get("animation", "ease-in-out")
         fade_time_s = self.config.get("fade_out_time", 2.0)
         fade_time_ms = int(fade_time_s * 1000)
@@ -757,8 +673,8 @@ class VisualElementGenerator:
                         active_p_events.append(ev)
             if active_p_events:
                 recent_ev = active_p_events[-1]
-                elapsed = time_ms - recent_ev["time"]
-                alpha = get_fade_alpha(elapsed, fade_time_ms, anim)
+                elapsed_ms = time_ms - recent_ev["time"]
+                alpha = get_fade_alpha(elapsed_ms, fade_time_ms, anim)
                 el_pevent = self._create_ui_element(
                     "player_events",
                     text=recent_ev["desc"],
@@ -775,8 +691,8 @@ class VisualElementGenerator:
                     active_g_events.append(ev)
         if active_g_events:
             recent_ev = active_g_events[-1]
-            elapsed = time_ms - recent_ev["time"]
-            alpha = get_fade_alpha(elapsed, fade_time_ms, anim)
+            elapsed_ms = time_ms - recent_ev["time"]
+            alpha = get_fade_alpha(elapsed_ms, fade_time_ms, anim)
             el_gevent = self._create_ui_element(
                 "game_events",
                 text=recent_ev["desc"],
@@ -785,5 +701,25 @@ class VisualElementGenerator:
             )
             if el_gevent:
                 elements.append(el_gevent)
+
+    def generate_at(self, time_ms: int) -> list[UIElement]:
+        """Generates HUD elements at a specific millisecond timestamp.
+
+        Args:
+            time_ms: The millisecond timestamp.
+
+        Returns:
+            list[UIElement]: The list of active UI HUD elements.
+        """
+        players, teams = self._get_state_at(time_ms)
+        elements: list[UIElement] = []
+
+        self._add_global_hud_elements(
+            elements=elements, teams=teams, players=players, time_ms=time_ms
+        )
+        self._add_player_hud_elements(
+            elements=elements, players=players, time_ms=time_ms
+        )
+        self._add_event_hud_elements(elements=elements, time_ms=time_ms)
 
         return elements

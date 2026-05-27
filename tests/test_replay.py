@@ -31,7 +31,9 @@ def test_replay_system_rules() -> None:
     from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
 
     # 1. Create a game
-    game = LFGame(game_id="test_rule_game", timestamp=datetime.now(), game_type="SM5")
+    game = LFGame(
+        game_id="test_rule_game", timestamp=datetime.now(), game_type="SM5"
+    )
 
     # 2. Add two teams
     t1 = GameTeam(
@@ -98,7 +100,8 @@ def test_replay_system_rules() -> None:
             action="start",
             raw_message="",
         ),
-        # Scout zaps Commander (DAMAGED_OPPONENT - Commander has 3 HP, so HP becomes 2, no life lost)
+        # Scout zaps Commander (DAMAGED_OPPONENT - Commander has 3 HP,
+        # so HP becomes 2, no life lost)
         GameEvent(
             game_id="test_rule_game",
             time=1000,
@@ -118,7 +121,8 @@ def test_replay_system_rules() -> None:
             action="zaps",
             raw_message="",
         ),
-        # Scout zaps Commander again (DOWNED_OPPONENT - Commander HP becomes 0, goes down, loses 1 life)
+        # Scout zaps Commander again (DOWNED_OPPONENT - Commander HP
+        # becomes 0, goes down, loses 1 life)
         GameEvent(
             game_id="test_rule_game",
             time=3000,
@@ -128,7 +132,8 @@ def test_replay_system_rules() -> None:
             action="zaps",
             raw_message="",
         ),
-        # Scout locks and missiles Commander at time 12000 (after downtime ends at 11000)
+        # Scout locks and missiles Commander at time 12000 (after
+        # downtime ends at 11000)
         # Downs Commander, takes 2 lives
         GameEvent(
             game_id="test_rule_game",
@@ -168,7 +173,7 @@ def test_replay_system_rules() -> None:
     # Got missiled at 12000 (-2 lives -> 12 lives).
     assert cmd_state.lives == 12
     assert cmd_state.hp == 0
-    assert cmd_state.downtime_ends_at == 20000  # 12000 + 8000
+    assert cmd_state.downtime_ends_at_ms == 20000  # 12000 + 8000
 
     # Scout started with 15 lives.
     # Medic resupplied lives to team at 13000.
@@ -183,7 +188,9 @@ def test_replay_missile_decrements_and_penalties() -> None:
     from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
 
     # Create game
-    game = LFGame(game_id="test_m_game", timestamp=datetime.now(), game_type="SM5")
+    game = LFGame(
+        game_id="test_m_game", timestamp=datetime.now(), game_type="SM5"
+    )
     game.penalty = -500
 
     # Teams
@@ -413,7 +420,7 @@ def test_medic_and_nuke_life_rules() -> None:
     # Medic starts with 20 lives. Zap (-1), missile (-2), nuke (-3) -> 14 lives.
     assert med_state.lives == 14
     assert med_state.hp == 0
-    assert med_state.downtime_ends_at == 28000  # 20000 + 8000
+    assert med_state.downtime_ends_at_ms == 28000  # 20000 + 8000
 
     # Scout starts with 15 lives. Detonating nuke at 20000 takes 3 lives.
     # So Scout should have 12 lives.
@@ -652,7 +659,8 @@ def test_scout_rapid_fire_sp_rules() -> None:
             )
         )
 
-    # Time 17000: Scout S1 has 16 SP. Activates rapid fire (costs 15 SP, has_rapid_fire becomes True)
+    # Time 17000: Scout S1 has 16 SP. Activates rapid fire (costs 15 SP,
+    # has_rapid_fire becomes True)
     events.extend(
         [
             GameEvent(
@@ -663,7 +671,8 @@ def test_scout_rapid_fire_sp_rules() -> None:
                 action="activates rapid fire",
                 raw_message="",
             ),
-            # Time 18000: Scout zaps enemy Scout again (with rapid fire, gets score but NO SP!)
+            # Time 18000: Scout zaps enemy Scout again (with rapid fire,
+            # gets score but NO SP!)
             GameEvent(
                 game_id="test_rapid_game",
                 time=18000,
@@ -673,7 +682,8 @@ def test_scout_rapid_fire_sp_rules() -> None:
                 action="zaps",
                 raw_message="",
             ),
-            # Time 19000: Scout S1 captures a base (with rapid fire, gets score but NO SP!)
+            # Time 19000: Scout S1 captures a base (with rapid fire,
+            # gets score but NO SP!)
             GameEvent(
                 game_id="test_rapid_game",
                 time=19000,
@@ -693,7 +703,8 @@ def test_scout_rapid_fire_sp_rules() -> None:
                 action="resupplies lives",
                 raw_message="",
             ),
-            # Time 30000: Scout zaps enemy Scout again (after rapid fire cleared, gets SP!)
+            # Time 30000: Scout zaps enemy Scout again (after rapid fire
+            # cleared, gets SP!)
             GameEvent(
                 game_id="test_rapid_game",
                 time=30000,
@@ -958,7 +969,8 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time == 43000 and r.description == "Cmd1 nuke canceled by own resup"
+            if r.time == 43000
+            and r.description == "Cmd1 nuke canceled by own resup"
         ),
         None,
     )
@@ -969,7 +981,8 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time == 61000 and r.description == "Cmd1 nuke canceled by enemy nuke"
+            if r.time == 61000
+            and r.description == "Cmd1 nuke canceled by enemy nuke"
         ),
         None,
     )
@@ -980,7 +993,8 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time == 90000 and r.description == "Cmd1 nuke activated too late"
+            if r.time == 90000
+            and r.description == "Cmd1 nuke activated too late"
         ),
         None,
     )

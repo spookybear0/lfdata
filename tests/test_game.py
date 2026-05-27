@@ -24,7 +24,9 @@ def test_create_game() -> None:
         session.add(game)
         session.commit()
 
-        retrieved = session.query(LFGame).filter_by(game_id="test_game_123").first()
+        retrieved = (
+            session.query(LFGame).filter_by(game_id="test_game_123").first()
+        )
         assert retrieved is not None
         assert retrieved.game_id == "test_game_123"
         assert retrieved.timestamp == now
@@ -34,4 +36,6 @@ def test_create_game() -> None:
         assert retrieved.centre == "4-43"
         assert retrieved.duration == 900000
         assert retrieved.penalty == -1000
-        assert repr(retrieved) == ("LFGame(game_id='test_game_123', game_type='SM5')")
+        assert repr(retrieved) == (
+            "LFGame(game_id='test_game_123', game_type='SM5')"
+        )

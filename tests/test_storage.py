@@ -41,7 +41,9 @@ def test_database_storage_real_game() -> None:
     assert len(retrieved.state_history) > 0
 
     # Verify player linkage
-    player_entity = next((e for e in retrieved.entities if e.type == "player"), None)
+    player_entity = next(
+        (e for e in retrieved.entities if e.type == "player"), None
+    )
     assert player_entity is not None
     assert player_entity.player is not None
     assert player_entity.player.codename == player_entity.desc

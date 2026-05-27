@@ -51,5 +51,5 @@ def test_create_entity() -> None:
         assert retrieved.player.codename == "Sqnfdcp"
         assert retrieved.game.game_id == "test_game_123"
         assert repr(retrieved) == (
-            "GameEntity(id=1, entity_id='#dJevxws', " "type='player', desc='Sqnfdcp')"
+            "GameEntity(id=1, entity_id='#dJevxws', type='player', desc='Sqnfdcp')"
         )

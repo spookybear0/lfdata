@@ -20,7 +20,9 @@ class LFGame(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, index=True)
     game_type: Mapped[str] = mapped_column(String(50))
     file_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    program_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    program_version: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )
     centre: Mapped[str | None] = mapped_column(String(100), nullable=True)
     duration: Mapped[int | None] = mapped_column(Integer, nullable=True)
     penalty: Mapped[int | None] = mapped_column(Integer, nullable=True)

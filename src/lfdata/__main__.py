@@ -27,7 +27,10 @@ def main() -> None:
     parser.add_argument(
         "--state_at",
         type=int,
-        help="Prints the complete game state given at the specific number of milliseconds into the game.",
+        help=(
+            "Prints the complete game state given at the specific "
+            "number of milliseconds into the game."
+        ),
     )
     parser.add_argument(
         "--video_player",
@@ -37,7 +40,10 @@ def main() -> None:
     parser.add_argument(
         "--video_state_at",
         type=int,
-        help="All UI elements given at the specific number of milliseconds into the game.",
+        help=(
+            "All UI elements given at the specific number of "
+            "milliseconds into the game."
+        ),
     )
     parser.add_argument(
         "--image-outdir",
@@ -55,6 +61,24 @@ def main() -> None:
             "Renders an image to be used at the specific number of "
             "milliseconds into the game. The image will be saved as "
             "a PNG file."
+        ),
+    )
+    parser.add_argument(
+        "--video_start_ms",
+        type=int,
+        default=0,
+        help=(
+            "Milliseconds into the game into which to start "
+            "generating video frames for. Defaults to 0."
+        ),
+    )
+    parser.add_argument(
+        "--video_end_ms",
+        type=int,
+        help=(
+            "Milliseconds into the game until which to generate "
+            "video frames for. If not specified, will generate "
+            "frames until 10 seconds after the game is over."
         ),
     )
 
@@ -77,7 +101,9 @@ def main() -> None:
         replay = LFReplaySystem(game)
         replay.run_up_to(args.state_at)
 
-        sorted_teams = sorted(replay.game_state.teams.values(), key=lambda t: t.ranking)
+        sorted_teams = sorted(
+            replay.game_state.teams.values(), key=lambda t: t.ranking
+        )
         print(f"Game State at {args.state_at} ms:")
         print("\nTeams:")
         for team in sorted_teams:
@@ -85,14 +111,16 @@ def main() -> None:
 
         print("\nPlayers:")
         sorted_players = sorted(
-            replay.game_state.players.values(), key=lambda p: p.score, reverse=True
+            replay.game_state.players.values(),
+            key=lambda p: p.score,
+            reverse=True,
         )
         for p in sorted_players:
             codename = replay.entity_names.get(p.entity_id, p.entity_id)
             if p.is_eliminated():
                 state_str = "Eliminated"
             elif p.is_down(args.state_at):
-                state_str = f"Down (until {p.downtime_ends_at} ms)"
+                state_str = f"Down (until {p.downtime_ends_at_ms} ms)"
             else:
                 state_str = "Active"
             print(
@@ -110,7 +138,8 @@ def main() -> None:
 
         if args.video_player:
             print(
-                f"HUD Elements for player {args.video_player} at {args.video_state_at} ms:"
+                f"HUD Elements for player {args.video_player} "
+                f"at {args.video_state_at} ms:"
             )
         else:
             print(f"HUD Elements at {args.video_state_at} ms:")
@@ -151,19 +180,20 @@ def main() -> None:
                     rank = team["visual_rank"]
                     score = team["team_score"]
                     print(
-                        f"    {team_name} (visual_rank={rank:.2f}) - " f"Score: {score}"
+                        f"    {team_name} "
+                        f"(visual_rank={rank:.2f}) - Score: {score}"
                     )
                     header = (
-                        f'      {"Player":<20} | '
-                        f'{"Role":<12} | '
-                        f'{"Score":>6} | '
-                        f'{"Lives":>5} | '
-                        f'{"Shots":>5} | '
-                        f'{"Missiles":>8} | '
-                        f'{"Spec":>5}'
+                        f"      {'Player':<20} | "
+                        f"{'Role':<12} | "
+                        f"{'Score':>6} | "
+                        f"{'Lives':>5} | "
+                        f"{'Shots':>5} | "
+                        f"{'Missiles':>8} | "
+                        f"{'Spec':>5}"
                     )
                     print(header)
-                    print(f'      {"-" * 77}')
+                    print(f"      {'-' * 77}")
                     for p in team["players"]:
                         if p["is_eliminated"]:
                             state_suffix = " (Eliminated)"
@@ -176,24 +206,24 @@ def main() -> None:
 
                         row = (
                             f"      {codename_display:<20} | "
-                            f'{p["role_name"]:<12} | '
-                            f'{p["score"]:>6} | '
-                            f'{p["lives"]:>5} | '
-                            f'{p["shots"]:>5} | '
-                            f'{p["missiles"]:>8} | '
-                            f'{p["special_points"]:>5}'
+                            f"{p['role_name']:<12} | "
+                            f"{p['score']:>6} | "
+                            f"{p['lives']:>5} | "
+                            f"{p['shots']:>5} | "
+                            f"{p['missiles']:>8} | "
+                            f"{p['special_points']:>5}"
                         )
                         print(row)
-                    print(f'      {"-" * 77}')
+                    print(f"      {'-' * 77}")
                     tot = team["totals"]
                     total_row = (
-                        f'      {"TOTAL":<20} | '
-                        f'{"":<12} | '
-                        f'{tot["score"]:>6} | '
-                        f'{tot["lives"]:>5} | '
-                        f'{tot["shots"]:>5} | '
-                        f'{tot["missiles"]:>8} | '
-                        f'{tot["special_points"]:>5}'
+                        f"      {'TOTAL':<20} | "
+                        f"{'':<12} | "
+                        f"{tot['score']:>6} | "
+                        f"{tot['lives']:>5} | "
+                        f"{tot['shots']:>5} | "
+                        f"{tot['missiles']:>8} | "
+                        f"{tot['special_points']:>5}"
                     )
                     print(total_row)
 
@@ -214,6 +244,45 @@ def main() -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / f"image_at_{args.image_at}.png"
         img.save(out_path)
+    elif args.video_player is not None and args.video_state_at is None:
+        from pathlib import Path
+        from lfdata.video import VideoGenerator, VisualElementGenerator
+
+        generator = VideoGenerator(game)
+        config = generator._load_config(None)
+        config["player_name"] = args.video_player
+
+        hud_gen = VisualElementGenerator(game, args.video_player, config)
+
+        actual_duration_ms = game.duration
+        if hud_gen.game_ended_at_ms is not None:
+            actual_duration_ms = hud_gen.game_ended_at_ms
+        if actual_duration_ms is None:
+            actual_duration_ms = 0
+
+        if args.video_end_ms is not None:
+            end_ms = args.video_end_ms
+        else:
+            if not game.events:
+                end_ms = 0
+            else:
+                extra_footage_ms = config.get("extra_footage_ms", 10000)
+                end_ms = actual_duration_ms + extra_footage_ms
+
+        start_ms = args.video_start_ms
+        fps = config.get("fps", 60)
+
+        out_dir = Path(args.image_outdir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        generator._generate_frames(
+            temp_path=out_dir,
+            start_ms=start_ms,
+            end_ms=end_ms,
+            fps=fps,
+            config=config,
+            hud_gen=hud_gen,
+        )
 
 
 if __name__ == "__main__":
