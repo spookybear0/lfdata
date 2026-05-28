@@ -52,6 +52,8 @@ def test_main_video_state_at(capsys) -> None:
         captured = capsys.readouterr()
         assert 'HUD Elements at 5000 ms:' in captured.out
         assert 'Game Type: Space Marines 5 Tournament Edition' in captured.out
+        assert 'HP' in captured.out
+        assert '-' * 86 in captured.out
 
 
 def test_main_image_at(tmp_path: Path) -> None:

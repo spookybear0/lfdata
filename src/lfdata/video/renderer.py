@@ -15,6 +15,7 @@ from lfdata.video.generator import VisualElementGenerator
 from lfdata.video.helpers import (
     DEFAULT_CONFIG,
     _merge_configs,
+    apply_animation,
     hex_to_rgb,
     parse_color_with_alpha,
 )
@@ -273,6 +274,10 @@ class VideoGenerator:
                 self._draw_scoreboard(img, el, config)
             elif el.element_type == 'downtime_bar':
                 self._draw_downtime_bar(img, el)
+            elif el.element_type == 'counter':
+                self._draw_counter(img, el, config)
+            elif el.element_type == 'event_scroller':
+                self._draw_event_scroller(img, el, time_ms, config)
 
         self._draw_text_elements(img, elements, config)
         return img
@@ -304,6 +309,40 @@ class VideoGenerator:
                 t['y_pos'] = curr_y
                 curr_y += team_heights[t['team_index']] + spacing
 
+    def _resolve_font_path(self, font_name: str) -> str:
+        """Resolves a font name to a path in the project's fonts folder.
+
+        If the font file exists in the fonts directory (optionally with a .ttf
+        extension), its path is returned. Otherwise, font_name is returned.
+
+        Args:
+            font_name: The name or file name of the font.
+
+        Returns:
+            str: Resolved font path or original font_name.
+        """
+        from pathlib import Path
+
+        path = Path('fonts') / font_name
+        if path.exists():
+            return str(path)
+
+        path_ttf = Path('fonts') / f'{font_name}.ttf'
+        if path_ttf.exists():
+            return str(path_ttf)
+
+        if font_name == 'Anton':
+            path_anton = Path('fonts') / 'Anton-Regular.ttf'
+            if path_anton.exists():
+                return str(path_anton)
+
+        if font_name == 'D Day Stencil':
+            path_dday = Path('fonts') / 'D Day Stencil.ttf'
+            if path_dday.exists():
+                return str(path_dday)
+
+        return font_name
+
     def _load_scoreboard_fonts(
         self,
         font_name: str,
@@ -320,9 +359,10 @@ class VideoGenerator:
         Returns:
             tuple[ImageFont.ImageFont, ImageFont.ImageFont]: The loaded fonts.
         """
+        resolved_name = self._resolve_font_path(font_name)
         try:
-            font = ImageFont.truetype(font_name, pixel_size)
-            bold_font = ImageFont.truetype(font_name, bold_pixel_size)
+            font = ImageFont.truetype(resolved_name, pixel_size)
+            bold_font = ImageFont.truetype(resolved_name, bold_pixel_size)
         except OSError:
             try:
                 font = ImageFont.load_default(size=pixel_size)
@@ -360,7 +400,7 @@ class VideoGenerator:
         spacing = int(20 * height / 1080)
 
         x_config = el.x if el.x is not None else 0.1
-        y_config = el.y if el.y is not None else 0.6
+        y_config = el.y if el.y is not None else 0.4
         x_start = int(image.width * x_config)
         y_start = int(height * y_config)
 
@@ -380,6 +420,14 @@ class VideoGenerator:
         font, bold_font = self._load_scoreboard_fonts(
             el.style.font, pixel_size, bold_pixel_size
         )
+        header_font_name = (
+            'D Day Stencil'
+            if el.style.font in ('Anton', 'Anton-Regular')
+            else el.style.font
+        )
+        header_font, _ = self._load_scoreboard_fonts(
+            header_font_name, bold_pixel_size, bold_pixel_size
+        )
 
         for team in teams:
             self._draw_team_table(
@@ -389,6 +437,7 @@ class VideoGenerator:
                 x_start,
                 font,
                 bold_font,
+                header_font,
                 header_h,
                 row_h,
             )
@@ -588,6 +637,7 @@ class VideoGenerator:
         x_start: int,
         font: ImageFont.ImageFont,
         bold_font: ImageFont.ImageFont,
+        header_font: ImageFont.ImageFont,
         header_h: int,
         row_h: int,
     ) -> None:
@@ -600,6 +650,7 @@ class VideoGenerator:
             x_start: The absolute starting X coordinate of the table.
             font: Standard size scoreboard text font.
             bold_font: Bold size scoreboard text font.
+            header_font: Scoreboard column header font.
             header_h: The scoreboard header height in pixels.
             row_h: The scoreboard player row height in pixels.
         """
@@ -629,7 +680,7 @@ class VideoGenerator:
             border_color=border_color,
             columns=columns,
             offsets=offsets,
-            bold_font=bold_font,
+            bold_font=header_font,
             header_h=header_h,
             padding_y=padding_y,
         )
@@ -685,16 +736,17 @@ class VideoGenerator:
             columns.append('Role')
         columns.append('Score')
         if is_sm5:
-            columns.extend(['Lives', 'Shots', 'Missiles', 'Spec'])
+            columns.extend(['Lives', 'Shots', 'Missiles', 'Spec', 'HP'])
 
         col_offset_map = {
             'Player': 20,
-            'Role': 200,
-            'Score': 350,
-            'Lives': 450,
-            'Shots': 550,
-            'Missiles': 650,
-            'Spec': 730,
+            'Role': 180,
+            'Score': 310,
+            'Lives': 410,
+            'Shots': 490,
+            'Missiles': 570,
+            'Spec': 660,
+            'HP': 730,
         }
 
         offsets = [
@@ -731,6 +783,8 @@ class VideoGenerator:
                 vals.append(str(p.get('missiles', 0)))
             elif col == 'Spec':
                 vals.append(str(p.get('special_points', 0)))
+            elif col == 'HP':
+                vals.append(str(p.get('hp', 0)))
         return vals
 
     def _compile_totals_row_values(
@@ -761,6 +815,8 @@ class VideoGenerator:
                 vals.append(str(totals.get('missiles', 0)))
             elif col == 'Spec':
                 vals.append(str(totals.get('special_points', 0)))
+            elif col == 'HP':
+                vals.append(str(totals.get('hp', 0)))
         return vals
 
     def _draw_downtime_progress(
@@ -879,8 +935,9 @@ class VideoGenerator:
             elif font_file.lower() == 'arial':
                 font_file = 'ariali.ttf'
 
+        resolved_file = self._resolve_font_path(font_file)
         try:
-            return ImageFont.truetype(font_file, pixel_size)
+            return ImageFont.truetype(resolved_file, pixel_size)
         except OSError:
             try:
                 return ImageFont.load_default(size=pixel_size)
@@ -948,3 +1005,269 @@ class VideoGenerator:
                 anchor=anchor,
             )
             image.alpha_composite(overlay)
+
+    def _get_icon_path(self, icon_name: str) -> Path | None:
+        """Finds the path to the icon file in the assets directory.
+
+        Args:
+            icon_name: Name of the icon (e.g. 'lives').
+
+        Returns:
+            Path | None: The path to the icon or None if it does not exist.
+        """
+        p = Path('assets') / f'{icon_name}.png'
+        if p.exists():
+            return p
+        return None
+
+    def _split_by_player_names(
+        self,
+        text: str,
+        player_to_color: dict[str, str],
+    ) -> list[tuple[str, str | None]]:
+        """Splits an event description into segments of text and player colors.
+
+        Args:
+            text: The event description string.
+            player_to_color: Mapping of player names to their hex colors.
+
+        Returns:
+            list[tuple[str, str | None]]: List of segments (text, color).
+        """
+        sorted_names = sorted(player_to_color.keys(), key=len, reverse=True)
+        parts: list[tuple[str, str | None]] = [(text, None)]
+
+        for name in sorted_names:
+            new_parts: list[tuple[str, str | None]] = []
+            for part_text, color in parts:
+                if color is not None:
+                    new_parts.append((part_text, color))
+                    continue
+
+                start = 0
+                while True:
+                    idx = part_text.find(name, start)
+                    if idx == -1:
+                        new_parts.append((part_text[start:], None))
+                        break
+                    if idx > start:
+                        new_parts.append((part_text[start:idx], None))
+                    new_parts.append((name, player_to_color[name]))
+                    start = idx + len(name)
+            parts = [p for p in new_parts if p[0]]
+        return parts
+
+    def _draw_counter(
+        self,
+        image: Image.Image,
+        el: UIElement,
+        config: dict[str, Any],
+    ) -> None:
+        """Draws a Counter element with a circular arc, icon, and text.
+
+        Args:
+            image: The Image canvas to draw on.
+            el: The Counter UIElement.
+            config: Merged video configuration options.
+        """
+        current = el.current_value if el.current_value is not None else 0
+        maximum = el.max_value if el.max_value is not None else 1
+
+        pct = current / maximum if maximum > 0 else 0.0
+        pct = max(0.0, min(1.0, pct))
+
+        if el.icon == 'sp':
+            color = (76, 175, 80, 255)
+        elif pct < 0.2:
+            color = (255, 77, 77, 255)
+        elif pct < 0.5:
+            color = (255, 235, 59, 255)
+        else:
+            color = (76, 175, 80, 255)
+
+        width, height = image.size
+        ext = el.extents if el.extents is not None else [0.05, 0.05]
+        diameter = int(height * ext[1])
+        if diameter <= 0:
+            return
+
+        x_coord = int(width * (el.x if el.x is not None else 0.2))
+        y_coord = int(height * (el.y if el.y is not None else 0.9))
+
+        overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+
+        thickness = max(2, int(diameter * 0.1))
+        circle_bbox = [x_coord, y_coord, x_coord + diameter, y_coord + diameter]
+
+        if pct > 0.0:
+            start_angle = 135
+            end_angle = int(135 + pct * 360)
+            draw.arc(
+                circle_bbox,
+                start=start_angle,
+                end=end_angle,
+                fill=color,
+                width=thickness,
+            )
+
+        if el.icon:
+            icon_path = self._get_icon_path(el.icon)
+            if icon_path and icon_path.exists():
+                try:
+                    icon_img = Image.open(icon_path).convert('RGBA')
+                    icon_size = int(diameter * 0.55)
+                    icon_img = icon_img.resize(
+                        (icon_size, icon_size), Image.Resampling.LANCZOS
+                    )
+                    cx = x_coord + diameter // 2
+                    cy = y_coord + diameter // 2
+                    overlay.paste(
+                        icon_img,
+                        (cx - icon_size // 2, cy - icon_size // 2),
+                        icon_img,
+                    )
+                except Exception as e:
+                    print(f'Warning: failed to draw icon {el.icon}: {e}')
+
+        text_str = f'{current}/{maximum}'
+        pixel_size = max(1, int(height * el.style.size / 800))
+        font = self._load_text_font(el.style.font, el.style.style, pixel_size)
+
+        spacing = int(diameter * 0.2)
+        tx = x_coord + diameter + spacing
+        ty = y_coord + diameter // 2
+
+        alpha_color = (color[0], color[1], color[2], int(color[3] * el.alpha))
+        bg_hex = el.style.background_color
+        bg_color = parse_color_with_alpha(bg_hex, el.alpha)
+
+        if bg_color[3] > 0:
+            bbox = draw.textbbox((tx, ty), text_str, font=font, anchor='lm')
+            padding = max(1, int(height * 4 / 800))
+            padded_bbox = (
+                bbox[0] - padding,
+                bbox[1] - padding,
+                bbox[2] + padding,
+                bbox[3] + padding,
+            )
+            draw.rectangle(padded_bbox, fill=bg_color)
+
+        draw.text((tx, ty), text_str, fill=alpha_color, font=font, anchor='lm')
+        image.alpha_composite(overlay)
+
+    def _draw_event_scroller(
+        self,
+        image: Image.Image,
+        el: UIElement,
+        time_ms: int,
+        config: dict[str, Any],
+    ) -> None:
+        """Draws a tilted Event Scroller list of game events.
+
+        Args:
+            image: The Image canvas to draw on.
+            el: The Event Scroller UIElement.
+            time_ms: The current millisecond timestamp.
+            config: Merged video configuration options.
+        """
+        events = el.events_data or []
+        player_to_color = el.player_to_color or {}
+
+        active_events = [ev for ev in events if ev['time'] <= time_ms]
+        if not active_events:
+            return
+
+        width, height = image.size
+        ext = el.extents if el.extents is not None else [0.4, 0.4]
+        W = int(width * ext[0])
+        H = int(height * ext[1])
+        if W <= 0 or H <= 0:
+            return
+
+        x_coord = int(width * (el.x if el.x is not None else 0.55))
+        y_coord = int(height * (el.y if el.y is not None else 0.45))
+
+        pixel_size = max(1, int(height * el.style.size / 800))
+        font = self._load_text_font(el.style.font, el.style.style, pixel_size)
+        row_height = int(pixel_size * 1.4)
+
+        anim = config.get('animation', 'ease-in-out')
+        scroll_duration_ms = 500
+
+        idx = len(active_events) - 1
+        target_offset = idx * row_height
+        t_latest = active_events[-1]['time']
+
+        prev_idx = -1
+        for i in range(len(active_events) - 2, -1, -1):
+            if active_events[i]['time'] < t_latest:
+                prev_idx = i
+                break
+
+        if prev_idx == -1:
+            prev_offset = 0.0
+        else:
+            prev_offset = prev_idx * row_height
+
+        elapsed = time_ms - t_latest
+        if elapsed < scroll_duration_ms:
+            p = elapsed / scroll_duration_ms
+            p_anim = apply_animation(p, anim)
+            y_scroll = prev_offset + (target_offset - prev_offset) * p_anim
+        else:
+            y_scroll = target_offset
+
+        temp_img = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        draw_temp = ImageDraw.Draw(temp_img)
+
+        for i, ev in enumerate(active_events):
+            y_pos = (H - row_height) + (i * row_height - y_scroll)
+            if y_pos < -row_height or y_pos > H:
+                continue
+
+            desc = ev['desc']
+            segments = self._split_by_player_names(desc, player_to_color)
+            x_cursor = 10
+
+            for text_part, color_hex in segments:
+                if color_hex:
+                    color = parse_color_with_alpha(color_hex, el.alpha)
+                else:
+                    color = parse_color_with_alpha(el.style.color, el.alpha)
+
+                draw_temp.text(
+                    (x_cursor, int(y_pos)), text_part, fill=color, font=font
+                )
+                x_cursor += int(draw_temp.textlength(text_part, font=font))
+
+        el_config = config.get('elements', {}).get('all_game_events', {})
+        tilt = el_config.get('tilt', 10.0)
+
+        if tilt != 0.0:
+            import math
+
+            dx = H * math.tan(math.radians(tilt))
+            dx = max(0.0, min(W * 0.45, dx))
+
+            a = W / (W - 2.0 * dx)
+            b = W * dx / (H * (W - 2.0 * dx))
+            c = -W * dx / (W - 2.0 * dx)
+            d = 0.0
+            e = a
+            f = 0.0
+            g = 0.0
+            h = (a - 1.0) / H
+
+            coeffs = (a, b, c, d, e, f, g, h)
+            try:
+                temp_img = temp_img.transform(
+                    (W, H),
+                    Image.Transform.PERSPECTIVE,
+                    coeffs,
+                    Image.Resampling.BILINEAR,
+                )
+            except Exception as e:
+                print(f'Warning: perspective transform failed: {e}')
+
+        image.paste(temp_img, (x_coord, y_coord), temp_img)

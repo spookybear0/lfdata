@@ -3,7 +3,7 @@
 import bisect
 from typing import Any
 
-from lfdata.model import GameEvent, LFGame
+from lfdata.model import GameEvent, LFGame, LFRole
 from lfdata.replay import LFReplaySystem
 from lfdata.replay.state import LFReplayPlayerState, LFReplayTeamState
 from lfdata.video.element import UIElement, UIElementStyle
@@ -51,6 +51,9 @@ class VisualElementGenerator:
             ]
         ] = []
         self.event_log: list[dict[str, Any]] = []
+        self.player_event_log: list[dict[str, Any]] = []
+        self._last_ammo_resup: tuple[int, str] | None = None
+        self._last_medic_resup: tuple[int, str] | None = None
         self.team_transitions: dict[int, list[tuple[int, float, int]]] = {}
         self.game_ended_at_ms: int | None = None
 
@@ -297,6 +300,8 @@ class VisualElementGenerator:
                     }
                 )
 
+            self._process_hud_event_triggers(event, replay, desc)
+
             self._track_rank_transitions(
                 replay=replay,
                 event_time_ms=event.time,
@@ -326,6 +331,192 @@ class VisualElementGenerator:
         )
 
         self.game_ended_at_ms = replay.game_ended_at_ms
+        self._precompute_nuke_intervals(sorted_events)
+
+    def _precompute_nuke_intervals(
+        self, sorted_events: list[GameEvent]
+    ) -> None:
+        """Precomputes active nuke intervals during the game.
+
+        Args:
+            sorted_events: Chronologically sorted game events list.
+        """
+        self.nuke_intervals: list[tuple[int, int, str]] = []
+        activations = [ev for ev in sorted_events if ev.event_type == '0404']
+
+        for act in activations:
+            nuker_id = act.actor_entity_id
+            if not nuker_id:
+                continue
+            t_start = act.time
+            t_end = self.game.duration or 0
+            if self.game_ended_at_ms is not None:
+                t_end = self.game_ended_at_ms
+
+            for ev in sorted_events:
+                if ev.time > t_start and ev.actor_entity_id == nuker_id:
+                    if ev.event_type in ('0405', 'nuke_cancel'):
+                        t_end = ev.time
+                        break
+
+            nuker_name = self.entity_names.get(nuker_id, nuker_id)
+            self.nuke_intervals.append((t_start, t_end, nuker_name))
+
+    def _process_hud_event_triggers(
+        self,
+        event: GameEvent,
+        replay: LFReplaySystem,
+        desc: str,
+    ) -> None:
+        """Processes and logs player-specific and important global HUD events.
+
+        Args:
+            event: The parsed GameEvent.
+            replay: The active LFReplaySystem.
+            desc: The default event description.
+        """
+        if len(self.snapshots) < 2:
+            return
+
+        prev_players = self.snapshots[-2][1]
+        actor_id = event.actor_entity_id
+        target_id = event.target_entity_id
+
+        actor_name = self.entity_names.get(actor_id or '', actor_id or '')
+        target_name = self.entity_names.get(target_id or '', target_id or '')
+
+        if self.entity_id:
+            msg = None
+            et = event.event_type
+
+            if et in ('0205', '0206', '0207', '0208'):
+                if actor_id == self.entity_id:
+                    t_state = replay.game_state.players.get(target_id or '')
+                    self_state = replay.game_state.players.get(self.entity_id)
+                    if t_state and self_state:
+                        if t_state.team_index == self_state.team_index:
+                            msg = f'FRIENDLY zap {target_name}'
+                        else:
+                            msg = f'Zapped {target_name}'
+                elif target_id == self.entity_id:
+                    a_state = replay.game_state.players.get(actor_id or '')
+                    self_state = replay.game_state.players.get(self.entity_id)
+                    if a_state and self_state:
+                        if a_state.team_index == self_state.team_index:
+                            msg = f'FRIENDLY zap by {actor_name}'
+                        else:
+                            msg = f'Zapped by {actor_name}'
+
+            elif et in ('0306', '0308'):
+                if actor_id == self.entity_id:
+                    t_state = replay.game_state.players.get(target_id or '')
+                    self_state = replay.game_state.players.get(self.entity_id)
+                    if t_state and self_state:
+                        if t_state.team_index == self_state.team_index:
+                            msg = f'FRIENDLY missile {target_name}'
+                        else:
+                            msg = f'Missiled {target_name}'
+                elif target_id == self.entity_id:
+                    a_state = replay.game_state.players.get(actor_id or '')
+                    self_state = replay.game_state.players.get(self.entity_id)
+                    if a_state and self_state:
+                        if a_state.team_index == self_state.team_index:
+                            msg = f'FRIENDLY missile by {actor_name}'
+                        else:
+                            msg = f'Missiled by {actor_name}'
+
+            elif et in ('0500', '0502') and target_id == self.entity_id:
+                if et == '0500':
+                    self._last_ammo_resup = (event.time, actor_name)
+                    if (
+                        self._last_medic_resup
+                        and event.time - self._last_medic_resup[0] <= 1000
+                    ):
+                        msg = (
+                            f'Double-resupply by {actor_name} and '
+                            f'{self._last_medic_resup[1]}'
+                        )
+                    else:
+                        msg = f'Resupplied shots by {actor_name}'
+                else:
+                    self._last_medic_resup = (event.time, actor_name)
+                    if (
+                        self._last_ammo_resup
+                        and event.time - self._last_ammo_resup[0] <= 1000
+                    ):
+                        msg = (
+                            f'Double-resupply by {self._last_ammo_resup[1]} '
+                            f'and {actor_name}'
+                        )
+                    else:
+                        msg = f'Resupplied lives by {actor_name}'
+
+            elif et in ('0510', '0512') and actor_id != self.entity_id:
+                a_state = replay.game_state.players.get(actor_id or '')
+                self_state = replay.game_state.players.get(self.entity_id)
+                prev_self = prev_players.get(self.entity_id)
+                if (
+                    a_state
+                    and self_state
+                    and prev_self
+                    and a_state.team_index == self_state.team_index
+                ):
+                    if (
+                        not prev_self.is_down(event.time)
+                        and prev_self.lives > 0
+                    ):
+                        if et == '0510':
+                            msg = f'Shot-boosted by {actor_name}'
+                        else:
+                            msg = f'Life-boosted by {actor_name}'
+
+            if msg:
+                self.player_event_log.append(
+                    {
+                        'time': event.time,
+                        'desc': msg,
+                        'actor_id': actor_id,
+                        'target_id': target_id,
+                    }
+                )
+
+        for pid, player in replay.game_state.players.items():
+            prev_player = prev_players.get(pid)
+            if not prev_player:
+                continue
+
+            if prev_player.lives > 0 and player.lives == 0:
+                p_name = self.entity_names.get(pid, pid)
+                self.event_log.append(
+                    {
+                        'time': event.time,
+                        'desc': f'{p_name} eliminated',
+                        'is_important': True,
+                        'actor_id': None,
+                        'target_id': pid,
+                    }
+                )
+
+            elif (
+                player.role == LFRole.MEDIC
+                and player.lives < prev_player.lives
+                and player.lives > 0
+                and player.lives % 5 == 0
+            ):
+                p_name = self.entity_names.get(pid, pid)
+                t_state = replay.game_state.teams.get(player.team_index)
+                t_name = (
+                    t_state.name if t_state else f'Team {player.team_index}'
+                )
+                self.event_log.append(
+                    {
+                        'time': event.time,
+                        'desc': f'{t_name} {p_name} has {player.lives} lives',
+                        'is_important': True,
+                        'actor_id': None,
+                        'target_id': pid,
+                    }
+                )
 
     def _get_state_at(
         self, time_ms: int
@@ -370,7 +561,7 @@ class VisualElementGenerator:
         """
         style_config = el_config.get('style', {})
         global_style = {
-            'font': self.config.get('font', 'Verdana'),
+            'font': self.config.get('font', 'Anton-Regular'),
             'style': self.config.get('style', 'normal'),
             'size': self.config.get('size', 20),
             'color': self.config.get('color', '#ffffffff'),
@@ -444,11 +635,18 @@ class VisualElementGenerator:
         align = el_config.get('align')
         top_left = el_config.get('top_left')
         bottom_right = el_config.get('bottom_right')
+        extents = el_config.get('extents')
+        icon = el_config.get('icon')
 
         pos_compat = self._translate_position_compat(x, y)
 
         kwargs_copy = dict(kwargs)
         elem_type = kwargs_copy.pop('element_type', 'text')
+
+        if 'extents' not in kwargs_copy and extents is not None:
+            kwargs_copy['extents'] = extents
+        if 'icon' not in kwargs_copy and icon is not None:
+            kwargs_copy['icon'] = icon
 
         return UIElement(
             element_type=elem_type,
@@ -484,6 +682,7 @@ class VisualElementGenerator:
         tot_shots = 0
         tot_missiles = 0
         tot_spec = 0
+        tot_hp = 0
 
         for p in team_players:
             codename = self.entity_names.get(p.entity_id, p.entity_id)
@@ -496,6 +695,8 @@ class VisualElementGenerator:
                     'shots': p.shots,
                     'missiles': p.missiles,
                     'special_points': p.special_points,
+                    'hp': p.hp,
+                    'max_hp': p.max_hp,
                     'is_down': p.is_down(time_ms),
                     'is_eliminated': p.is_eliminated(),
                 }
@@ -505,6 +706,7 @@ class VisualElementGenerator:
             tot_shots += p.shots
             tot_missiles += p.missiles
             tot_spec += p.special_points
+            tot_hp += p.hp
 
         totals = {
             'score': tot_score,
@@ -512,6 +714,7 @@ class VisualElementGenerator:
             'shots': tot_shots,
             'missiles': tot_missiles,
             'special_points': tot_spec,
+            'hp': tot_hp,
         }
         return players_data, totals
 
@@ -623,7 +826,7 @@ class VisualElementGenerator:
         total_seconds = display_ms // 1000
         minutes = total_seconds // 60
         seconds = total_seconds % 60
-        time_text = f'Time: {minutes:02d}:{seconds:02d}'
+        time_text = f'{minutes:02d}:{seconds:02d}'
 
         el_time = self._create_ui_element(
             'time', text=time_text, element_type='text'
@@ -642,37 +845,66 @@ class VisualElementGenerator:
         elements: list[UIElement],
         p_state: LFReplayPlayerState,
     ) -> None:
-        """Adds text stats HUD elements for the focused player.
+        """Adds text stats and Counter HUD elements for the focused player.
 
         Args:
             elements: List of visual elements to append to.
             p_state: Player state of the focused player.
         """
         stats_defs = [
-            ('player_name', f'Player: {self.player_name}'),
-            ('player_role', f'Role: {p_state.role.display_name}'),
-            ('player_score', f'Score: {p_state.score}'),
-            ('player_lives', f'Lives: {p_state.lives}'),
-            ('player_shots', f'Shots: {p_state.shots}'),
+            ('player_name', f'{self.player_name}'),
+            ('player_role', f'{p_state.role.display_name}'),
+            ('player_score', f'{p_state.score}'),
         ]
         for key, text in stats_defs:
             el = self._create_ui_element(key, text=text, element_type='text')
             if el:
                 elements.append(el)
 
-        if p_state.role.start_missiles > 0:
-            el_pmissiles = self._create_ui_element(
-                'player_missiles',
-                text=f'Missiles: {p_state.missiles}',
-                element_type='text',
+        el_lives = self._create_ui_element(
+            'player_lives',
+            element_type='counter',
+            current_value=p_state.lives,
+            max_value=p_state.role.max_lives,
+        )
+        if el_lives:
+            elements.append(el_lives)
+
+        if p_state.role.max_shots > 0:
+            el_shots = self._create_ui_element(
+                'player_shots',
+                element_type='counter',
+                current_value=p_state.shots,
+                max_value=p_state.role.max_shots,
             )
-            if el_pmissiles:
-                elements.append(el_pmissiles)
+            if el_shots:
+                elements.append(el_shots)
+
+        if p_state.role.start_missiles > 0:
+            el_missiles = self._create_ui_element(
+                'player_missiles',
+                element_type='counter',
+                current_value=p_state.missiles,
+                max_value=p_state.role.start_missiles,
+            )
+            if el_missiles:
+                elements.append(el_missiles)
+
+        if p_state.max_hp > 1:
+            el_hp = self._create_ui_element(
+                'player_hitpoints',
+                element_type='counter',
+                current_value=p_state.hp,
+                max_value=p_state.max_hp,
+            )
+            if el_hp:
+                elements.append(el_hp)
 
         el_pspec = self._create_ui_element(
             'player_special_points',
-            text=f'Special Points: {p_state.special_points}',
-            element_type='text',
+            element_type='counter',
+            current_value=p_state.special_points,
+            max_value=100,
         )
         if el_pspec:
             elements.append(el_pspec)
@@ -730,7 +962,6 @@ class VisualElementGenerator:
         self,
         elements: list[UIElement],
         time_ms: int,
-        fade_time_ms: int,
         anim: str,
     ) -> None:
         """Adds recent player-specific event HUD element if active.
@@ -738,19 +969,22 @@ class VisualElementGenerator:
         Args:
             elements: List of visual elements to append to.
             time_ms: Current millisecond timestamp.
-            fade_time_ms: Event fade out time in milliseconds.
             anim: Animation function name.
         """
         if not self.entity_id:
             return
+
+        el_config = self.config.get('elements', {}).get('player_events', {})
+        fade_time_s = el_config.get('fade_out_time')
+        if fade_time_s is None:
+            fade_time_s = self.config.get('fade_out_time', 3.0)
+        fade_time_ms = int(fade_time_s * 1000)
+
         active_p_events = []
-        for ev in self.event_log:
+        for ev in self.player_event_log:
             if time_ms - fade_time_ms <= ev['time'] <= time_ms:
-                if (
-                    ev['actor_id'] == self.entity_id
-                    or ev['target_id'] == self.entity_id
-                ):
-                    active_p_events.append(ev)
+                active_p_events.append(ev)
+
         if active_p_events:
             recent_ev = active_p_events[-1]
             elapsed_ms = time_ms - recent_ev['time']
@@ -768,7 +1002,6 @@ class VisualElementGenerator:
         self,
         elements: list[UIElement],
         time_ms: int,
-        fade_time_ms: int,
         anim: str,
     ) -> None:
         """Adds recent important game event HUD element if active.
@@ -776,14 +1009,39 @@ class VisualElementGenerator:
         Args:
             elements: List of visual elements to append to.
             time_ms: Current millisecond timestamp.
-            fade_time_ms: Event fade out time in milliseconds.
             anim: Animation function name.
         """
+        # First, check if there is an active nuke activation interval
+        active_nuke_msg = None
+        for start_ms, end_ms, player_name in self.nuke_intervals:
+            if start_ms <= time_ms < end_ms:
+                active_nuke_msg = f'{player_name} activates nuke'
+                break
+
+        if active_nuke_msg:
+            el_gevent = self._create_ui_element(
+                'game_events',
+                text=active_nuke_msg,
+                element_type='text',
+                alpha=1.0,
+            )
+            if el_gevent:
+                elements.append(el_gevent)
+            return
+
+        # Otherwise, check important game events with 5s fade
+        el_config = self.config.get('elements', {}).get('game_events', {})
+        fade_time_s = el_config.get('fade_out_time')
+        if fade_time_s is None:
+            fade_time_s = self.config.get('fade_out_time', 5.0)
+        fade_time_ms = int(fade_time_s * 1000)
+
         active_g_events = []
         for ev in self.event_log:
             if time_ms - fade_time_ms <= ev['time'] <= time_ms:
                 if ev['is_important']:
                     active_g_events.append(ev)
+
         if active_g_events:
             recent_ev = active_g_events[-1]
             elapsed_ms = time_ms - recent_ev['time']
@@ -798,22 +1056,48 @@ class VisualElementGenerator:
                 elements.append(el_gevent)
 
     def _add_event_hud_elements(
-        self, elements: list[UIElement], time_ms: int
+        self,
+        elements: list[UIElement],
+        players: dict[str, LFReplayPlayerState],
+        teams: dict[int, LFReplayTeamState],
+        time_ms: int,
     ) -> None:
         """Adds recent event notification HUD elements.
 
         Args:
             elements: List of visual elements to append to.
+            players: Current player states.
+            teams: Current team states.
             time_ms: Current millisecond timestamp.
         """
         anim = self.config.get('animation', 'ease-in-out')
-        fade_time_s = self.config.get('fade_out_time', 2.0)
-        fade_time_ms = int(fade_time_s * 1000)
 
         self._add_player_event_hud_element(
-            elements, time_ms, fade_time_ms, anim
+            elements=elements,
+            time_ms=time_ms,
+            anim=anim,
         )
-        self._add_game_event_hud_element(elements, time_ms, fade_time_ms, anim)
+        self._add_game_event_hud_element(
+            elements=elements,
+            time_ms=time_ms,
+            anim=anim,
+        )
+
+        player_to_color: dict[str, str] = {}
+        for pid, player in players.items():
+            name = self.entity_names.get(pid, pid)
+            t_state = teams.get(player.team_index)
+            color = t_state.color_rgb if t_state else '#ffffff'
+            player_to_color[name] = color
+
+        el_scroller = self._create_ui_element(
+            'all_game_events',
+            element_type='event_scroller',
+            events_data=list(self.event_log),
+            player_to_color=player_to_color,
+        )
+        if el_scroller:
+            elements.append(el_scroller)
 
     def generate_at(self, time_ms: int) -> list[UIElement]:
         """Generates HUD elements at a specific millisecond timestamp.
@@ -833,6 +1117,8 @@ class VisualElementGenerator:
         self._add_player_hud_elements(
             elements=elements, players=players, time_ms=time_ms
         )
-        self._add_event_hud_elements(elements=elements, time_ms=time_ms)
+        self._add_event_hud_elements(
+            elements=elements, players=players, teams=teams, time_ms=time_ms
+        )
 
         return elements

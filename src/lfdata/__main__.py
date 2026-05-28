@@ -198,10 +198,11 @@ def main() -> None:
                         f'{"Lives":>5} | '
                         f'{"Shots":>5} | '
                         f'{"Missiles":>8} | '
-                        f'{"Spec":>5}'
+                        f'{"Spec":>5} | '
+                        f'{"HP":>4}'
                     )
                     print(header)
-                    print(f'      {"-" * 77}')
+                    print(f'      {"-" * 86}')
                     for p in team['players']:
                         if p['is_eliminated']:
                             state_suffix = ' (Eliminated)'
@@ -219,10 +220,11 @@ def main() -> None:
                             f'{p["lives"]:>5} | '
                             f'{p["shots"]:>5} | '
                             f'{p["missiles"]:>8} | '
-                            f'{p["special_points"]:>5}'
+                            f'{p["special_points"]:>5} | '
+                            f'{p["hp"]:>4}'
                         )
                         print(row)
-                    print(f'      {"-" * 77}')
+                    print(f'      {"-" * 86}')
                     tot = team['totals']
                     total_row = (
                         f'      {"TOTAL":<20} | '
@@ -231,7 +233,8 @@ def main() -> None:
                         f'{tot["lives"]:>5} | '
                         f'{tot["shots"]:>5} | '
                         f'{tot["missiles"]:>8} | '
-                        f'{tot["special_points"]:>5}'
+                        f'{tot["special_points"]:>5} | '
+                        f'{tot["hp"]:>4}'
                     )
                     print(total_row)
 

@@ -77,12 +77,24 @@ def test_visual_element_generator() -> None:
     texts = [el.text for el in elements_active if el.text]
     assert 'Game Type: SM5' in texts
     assert 'Player: Sqnfdcp' in texts
-    assert 'Role: Commander' in texts
+    assert 'Commander' in texts
     assert 'Score: 0' in texts
-    assert 'Lives: 15' in texts
-    assert 'Shots: 30' in texts
-    assert 'Missiles: 5' in texts
-    assert 'Special Points: 0' in texts
+
+    counters = {
+        el.icon: el for el in elements_active if el.element_type == 'counter'
+    }
+    assert 'lives' in counters
+    assert counters['lives'].current_value == 15
+    assert counters['lives'].max_value == 30
+    assert 'shots' in counters
+    assert counters['shots'].current_value == 30
+    assert counters['shots'].max_value == 60
+    assert 'missiles' in counters
+    assert counters['missiles'].current_value == 5
+    assert counters['missiles'].max_value == 5
+    assert 'sp' in counters
+    assert counters['sp'].current_value == 0
+    assert counters['sp'].max_value == 100
 
     assert not any(el.element_type == 'downtime_bar' for el in elements_active)
 
@@ -138,11 +150,11 @@ def test_visual_element_generator_new_features() -> None:
 
     elements = hud_gen.generate_at(1000)
     texts = [el.text for el in elements if el.text]
-    assert 'Time: 00:01' in texts
+    assert '00:01' in texts
 
     elements_capped = hud_gen.generate_at(5000)
     texts_capped = [el.text for el in elements_capped if el.text]
-    assert 'Time: 00:04' in texts_capped
+    assert '00:04' in texts_capped
 
     sb_el = next(
         (el for el in elements if el.element_type == 'scoreboard'), None

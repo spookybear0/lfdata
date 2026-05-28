@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 class UIElementStyle:
     """Represents text styling attributes for visual elements."""
 
-    font: str = 'Verdana'
+    font: str = 'Anton-Regular'
     style: str = 'normal'
     size: int = 20
     color: str = '#ffffffff'
@@ -31,3 +31,9 @@ class UIElement:
     resettable_ms: int = 0
     scoreboard_data: dict[str, any] | None = None
     alpha: float = 1.0
+    extents: list[float] | None = None
+    icon: str | None = None
+    current_value: int | None = None
+    max_value: int | None = None
+    events_data: list[dict[str, any]] | None = None
+    player_to_color: dict[str, str] | None = None
