@@ -616,22 +616,22 @@ def test_new_renderer_rules() -> None:
         assert mock_draw_sb.rectangle.call_count > 0
         assert mock_draw_sb.line.call_count > 0
 
-    # 3. Test player HP filtering in player rows
+    # 3. Test HP column is removed entirely
     mock_draw_p = MagicMock()
     with (
         patch('PIL.ImageDraw.Draw', return_value=mock_draw_p),
         patch.object(vg, '_load_scoreboard_fonts', return_value=(None, None)),
     ):
         vg._draw_scoreboard(img, el_sb, {})
-        # Commander has max_hp = 3 (>1), Sct has max_hp = 1 (<=1)
-        # Check HP values passed to draw.text
-        hp_calls = [
+        # Get all text elements drawn
+        text_calls = [
             args[1] if len(args) > 1 else kwargs.get('text', '')
             for args, kwargs in mock_draw_p.text.call_args_list
         ]
-        # HP '3' should be drawn, '1' should be hidden (so not present)
-        assert '3' in hp_calls
-        assert '1' not in hp_calls
+        # HP column should be removed: no HP header, and no player HP values
+        assert 'HP' not in text_calls
+        assert '3' not in text_calls
+        assert '1' not in text_calls
 
 
 def test_downtime_bar_cropping() -> None:

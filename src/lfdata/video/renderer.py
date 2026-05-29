@@ -787,7 +787,7 @@ class VideoGenerator:
         overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
-        table_width = int(800 * image.width / 1920)
+        table_width = int(650 * image.width / 1920)
         ty = int(team['y_pos'])
 
         columns, offsets = self._resolve_scoreboard_columns(
@@ -868,21 +868,20 @@ class VideoGenerator:
             columns.append('Role')
         columns.append('Score')
         if is_sm5:
-            columns.extend(['Lives', 'Shots', 'Missiles', 'Spec', 'HP'])
+            columns.extend(['Lives', 'Shots', 'Missiles', 'Spec'])
 
         col_offset_map = {
             'Player': 20,
             'Role': 180,
-            'Score': 310,
-            'Lives': 410,
-            'Shots': 490,
-            'Missiles': 570,
-            'Spec': 660,
-            'HP': 730,
+            'Score': 230,
+            'Lives': 330,
+            'Shots': 410,
+            'Missiles': 490,
+            'Spec': 580,
         }
 
         offsets = [
-            x_start + int(col_offset_map[col] * table_width / 800)
+            x_start + int(col_offset_map[col] * table_width / 650)
             for col in columns
         ]
         return columns, offsets
@@ -915,11 +914,6 @@ class VideoGenerator:
                 vals.append(str(p.get('missiles', 0)))
             elif col == 'Spec':
                 vals.append(str(p.get('special_points', 0)))
-            elif col == 'HP':
-                if p.get('max_hp', 0) > 1:
-                    vals.append(str(p.get('hp', 0)))
-                else:
-                    vals.append('')
         return vals
 
     def _compile_totals_row_values(
@@ -950,8 +944,6 @@ class VideoGenerator:
                 vals.append(str(totals.get('missiles', 0)))
             elif col == 'Spec':
                 vals.append(str(totals.get('special_points', 0)))
-            elif col == 'HP':
-                vals.append(str(totals.get('hp', 0)))
         return vals
 
     def _draw_downtime_bar(self, image: Image.Image, el: UIElement) -> None:
