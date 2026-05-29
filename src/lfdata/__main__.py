@@ -38,6 +38,11 @@ def main() -> None:
         help='The name of the player to focus the video generation on.',
     )
     parser.add_argument(
+        '--fps',
+        type=int,
+        help='FPS for the video generation.',
+    )
+    parser.add_argument(
         '--video_state_at',
         type=int,
         help=(
@@ -281,7 +286,7 @@ def main() -> None:
                 end_ms = actual_duration_ms + extra_footage_ms
 
         start_ms = args.video_start_ms
-        fps = config.get('fps', 60)
+        fps = args.fps if args.fps is not None else config.get('fps', 60)
 
         out_dir = Path(args.image_outdir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -293,6 +298,7 @@ def main() -> None:
                 video_start_ms=start_ms,
                 video_end_ms=args.video_end_ms,
                 video_player=args.video_player,
+                fps=args.fps,
             )
         else:
             generator._generate_frames(

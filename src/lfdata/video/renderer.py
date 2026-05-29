@@ -70,12 +70,12 @@ class VideoGenerator:
         video_start_ms: int = 0,
         video_end_ms: int | None = None,
         video_player: str | None = None,
+        fps: int | None = None,
     ) -> Path:
-        """Generates a video file visualizing the game.
+        """Generates a video file for the game replay.
 
-        This method loads the configuration, runs the replay frame-by-frame,
-        renders each frame as a PNG image, compiles them into a video using
-        ffmpeg, and cleans up the temporary files.
+        This method compiles all replay events, generates image frames, and
+        compiles them into a video file at the specified output path.
 
         Args:
             output_path: The output file path for the generated video.
@@ -83,6 +83,7 @@ class VideoGenerator:
             video_start_ms: The starting millisecond timestamp for the video.
             video_end_ms: The ending millisecond timestamp for the video.
             video_player: Optional player name to focus on.
+            fps: Optional frame rate override for the video.
 
         Returns:
             Path: The path to the generated video file.
@@ -98,7 +99,7 @@ class VideoGenerator:
 
         end_ms = self._determine_video_end_ms(hud_gen, config, video_end_ms)
         start_ms = video_start_ms
-        fps = config.get('fps', 60)
+        fps_val = fps if fps is not None else config.get('fps', 60)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -106,11 +107,11 @@ class VideoGenerator:
                 temp_path=temp_path,
                 start_ms=start_ms,
                 end_ms=end_ms,
-                fps=fps,
+                fps=fps_val,
                 config=config,
                 hud_gen=hud_gen,
             )
-            self._compile_video(temp_path, fps, output_path)
+            self._compile_video(temp_path, fps_val, output_path)
 
         return output_path
 
