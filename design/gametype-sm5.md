@@ -35,8 +35,8 @@ A player will have one of 5 roles:
 
 | Role      | Lives on start | Shots on start | Missiles on start | Lives gained when zapped by medic | Shots gained when zapped by ammo | Max number of lives | Max number of shots | Hitpoints | Shot strength |
 |-----------|----------------|----------------|-------------------|-----------------------------------|----------------------------------|---------------------|---------------------|-----------|---------------|
-| Scout     | 15             | 30             | 0                 | 3                                 | 10                               | 30                  | 60                  | 1         | 1             |
-| Medic     | 20             | 15             | 0                 | 0                                 | 5                                | 20                  | 20                  | 1         | 1             |
+| Scout     | 15             | 30             | 0                 | 5                                 | 10                               | 30                  | 60                  | 1         | 1             |
+| Medic     | 20             | 15             | 0                 | 0                                 | 5                                | 20                  | 30                  | 1         | 1             |
 | Ammo      | 10             | 0              | 0                 | 3                                 | 0                                | 20                  | 0                   | 1         | 1             |
 | Heavy     | 10             | 20             | 5                 | 3                                 | 5                                | 20                  | 40                  | 3         | 3             |
 | Commander | 15             | 30             | 5                 | 4                                 | 5                                | 30                  | 60                  | 3         | 2             |
