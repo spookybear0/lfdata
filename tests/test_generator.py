@@ -672,10 +672,10 @@ def test_camera_shake_triggering() -> None:
     assert el_pn is not None
 
     # Default positions:
-    # game_type: x=0.95, y=0.9
+    # game_type: x=0.98, y=0.96
     # player_name: x=0.5, y=0.05
-    dx_gt = el_gt.x - 0.95
-    dy_gt = el_gt.y - 0.9
+    dx_gt = el_gt.x - 0.98
+    dy_gt = el_gt.y - 0.96
 
     dx_pn = el_pn.x - 0.5
     dy_pn = el_pn.y - 0.05
@@ -699,5 +699,136 @@ def test_camera_shake_triggering() -> None:
         None,
     )
     assert el_gt_idle is not None
-    assert abs(el_gt_idle.x - 0.95) < 1e-7
-    assert abs(el_gt_idle.y - 0.9) < 1e-7
+    assert abs(el_gt_idle.x - 0.98) < 1e-7
+    assert abs(el_gt_idle.y - 0.96) < 1e-7
+
+
+def test_multiline_text_slot_allocation() -> None:
+    from lfdata.model import LFGame
+    from lfdata.video import VisualElementGenerator
+
+    # 1. Create a game with team and entities
+    game = LFGame(
+        game_id='test_multiline_game',
+        timestamp=datetime.now(),
+        game_type='SM5',
+        duration=15000,
+    )
+    hud_gen = VisualElementGenerator(game, 'Player1')
+
+    # Directly populate player_event_log to test simulation behavior
+    hud_gen.player_event_log = [
+        {'time': 1000, 'desc': 'event 1'},  # Expires at 4000
+        {'time': 3000, 'desc': 'event 2'},  # Expires at 6000
+        {'time': 5000, 'desc': 'event 3'},  # Expires at 8000
+        {'time': 7000, 'desc': 'event 4'},  # Expires at 10000
+    ]
+
+    # Test slot allocation logic at different times:
+    # At t=2000: event 1 should be in Slot 0, others None
+    slots_2000 = hud_gen._get_active_multiline_lines(
+        event_list=hud_gen.player_event_log,
+        time_ms=2000,
+        fade_time_ms=3000,
+    )
+    assert slots_2000[0] is not None and slots_2000[0]['text'] == 'event 1'
+    assert slots_2000[1] is None
+    assert slots_2000[2] is None
+
+    # At t=3500: event 1 is active in Slot 0, event 2 in Slot 1
+    slots_3500 = hud_gen._get_active_multiline_lines(
+        event_list=hud_gen.player_event_log,
+        time_ms=3500,
+        fade_time_ms=3000,
+    )
+    assert slots_3500[0] is not None and slots_3500[0]['text'] == 'event 1'
+    assert slots_3500[1] is not None and slots_3500[1]['text'] == 'event 2'
+    assert slots_3500[2] is None
+
+    # At t=5500: event 2 active in Slot 1, event 3 goes to Slot 0
+    slots_5500 = hud_gen._get_active_multiline_lines(
+        event_list=hud_gen.player_event_log,
+        time_ms=5500,
+        fade_time_ms=3000,
+    )
+    assert slots_5500[0] is not None and slots_5500[0]['text'] == 'event 3'
+    assert slots_5500[1] is not None and slots_5500[1]['text'] == 'event 2'
+    assert slots_5500[2] is None
+
+    # At t=7500: event 3 in Slot 0, event 4 goes to Slot 1
+    slots_7500 = hud_gen._get_active_multiline_lines(
+        event_list=hud_gen.player_event_log,
+        time_ms=7500,
+        fade_time_ms=3000,
+    )
+    assert slots_7500[0] is not None and slots_7500[0]['text'] == 'event 3'
+    assert slots_7500[1] is not None and slots_7500[1]['text'] == 'event 4'
+    assert slots_7500[2] is None
+
+    # 2. Test nuke dynamic durations
+    # Nuke activates at 2000, cancels/detonates at 8000
+    hud_gen.nuke_intervals = [
+        (2000, 8000, 'CommanderA'),
+    ]
+    hud_gen.event_log = [
+        {
+            'time': 2000,
+            'desc': 'CommanderA activates nuke',
+            'is_important': True,
+        },
+        {
+            'time': 8000,
+            'desc': 'CommanderA detonates nuke',
+            'is_important': True,
+        },
+    ]
+
+    # At t=5000: 'activates nuke' should be in Slot 0, duration is 6000 ms
+    slots_5000 = hud_gen._get_active_multiline_lines(
+        event_list=hud_gen.event_log,
+        time_ms=5000,
+        fade_time_ms=5000,
+        is_game_events=True,
+    )
+    assert slots_5000[0] is not None
+    assert 'activates nuke' in slots_5000[0]['text']
+    assert slots_5000[0]['duration'] == 6000
+    assert slots_5000[0]['is_nuke_act'] is True
+
+    # At t=9000: 'activates nuke' expired, 'detonates nuke' active in Slot 0
+    slots_9000 = hud_gen._get_active_multiline_lines(
+        event_list=hud_gen.event_log,
+        time_ms=9000,
+        fade_time_ms=5000,
+        is_game_events=True,
+    )
+    assert slots_9000[0] is not None
+    assert 'detonates nuke' in slots_9000[0]['text']
+    assert slots_9000[0]['duration'] == 5000
+    assert slots_9000[0]['is_nuke_act'] is False
+
+    # 3. Test multi-line text vertical offsets on UIElement list
+    game.teams = []
+    game.entities = []
+    hud_gen.entity_id = 'P1'
+    hud_gen.player_event_log = [
+        {'time': 1000, 'desc': 'event 1'},
+        {'time': 2000, 'desc': 'event 2'},
+    ]
+    hud_gen._get_state_at = lambda t: ({}, {})
+
+    elements = hud_gen.generate_at(2500)
+    pe_elements = [
+        el
+        for el in elements
+        if el.element_type == 'text' and el.text in ('event 1', 'event 2')
+    ]
+    assert len(pe_elements) == 2
+
+    pe1 = next(el for el in pe_elements if el.text == 'event 1')
+    pe2 = next(el for el in pe_elements if el.text == 'event 2')
+
+    # default player_events y = 0.2, font size = 18.
+    # line_height = (18 * 1.3) / 800 = 0.02925
+    assert abs(pe1.y - 0.2) < 1e-7
+    assert abs(pe2.y - 0.22925) < 1e-7

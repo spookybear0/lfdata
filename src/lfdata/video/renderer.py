@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 from typing import Any
 
 from PIL import Image, ImageChops, ImageDraw, ImageFont
@@ -139,6 +140,29 @@ class VideoGenerator:
             print(f'Warning: failed to load config: {e}')
         return config
 
+    def _format_duration(self, seconds: float) -> str:
+        """Formats a duration in seconds to a human-readable string.
+
+        Converts the float seconds value into a clean, readable representation
+        such as 'Xm Ys', 'Xs', or 'Hh Mm'.
+
+        Args:
+            seconds: The duration in seconds.
+
+        Returns:
+            str: The formatted duration string.
+        """
+        sec = int(seconds)
+        if sec < 60:
+            return f'{sec}s'
+        minutes = sec // 60
+        sec = sec % 60
+        if minutes < 60:
+            return f'{minutes}m {sec}s'
+        hours = minutes // 60
+        minutes = minutes % 60
+        return f'{hours}h {minutes}m {sec}s'
+
     def _render_and_save_frame(
         self,
         frame_idx: int,
@@ -196,7 +220,6 @@ class VideoGenerator:
             ThreadPoolExecutor,
             wait,
         )
-        import time
 
         def worker(task: tuple[int, int]) -> None:
             """Thread worker function to render a single frame task.
@@ -218,7 +241,8 @@ class VideoGenerator:
             futures = [executor.submit(worker, t) for t in tasks]
             total_frames = len(tasks)
             pending = set(futures)
-            last_report_time = time.time()
+            start_time = time.time()
+            last_report_time = start_time
 
             while pending:
                 _, pending = wait(
@@ -234,11 +258,38 @@ class VideoGenerator:
                         if total_frames > 0
                         else 0.0
                     )
-                    print(
-                        f'Rendered {completed}/{total_frames} '
-                        f'frames ({pct:.1f}%).'
-                    )
+                    elapsed = current_time - start_time
+                    elapsed_str = self._format_duration(elapsed)
+
+                    if completed >= 5 and elapsed > 1.0:
+                        rate = completed / elapsed
+                        rem_frames = total_frames - completed
+                        remaining = rem_frames / rate
+                        remaining_str = self._format_duration(remaining)
+                        msg = (
+                            f'Rendered {completed}/{total_frames} '
+                            f'frames ({pct:.1f}%) - '
+                            f'{elapsed_str} elapsed, '
+                            f'{remaining_str} remaining.'
+                        )
+                    else:
+                        msg = (
+                            f'Rendered {completed}/{total_frames} '
+                            f'frames ({pct:.1f}%) - '
+                            f'{elapsed_str} elapsed.'
+                        )
+                    print(msg)
                     last_report_time = current_time
+
+            # Print a final status report upon completion.
+            completed = total_frames
+            elapsed = time.time() - start_time
+            elapsed_str = self._format_duration(elapsed)
+            print(
+                f'Rendered {completed}/{total_frames} '
+                f'frames (100.0%) - '
+                f'{elapsed_str} elapsed.'
+            )
 
             for f in futures:
                 f.result()

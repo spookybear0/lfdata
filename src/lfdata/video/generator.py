@@ -953,13 +953,87 @@ class VisualElementGenerator:
         self._add_player_stats_hud_elements(elements, p_state)
         self._add_player_downtime_hud_element(elements, p_state, time_ms)
 
+    def _get_active_multiline_lines(
+        self,
+        event_list: list[dict[str, Any]],
+        time_ms: int,
+        fade_time_ms: int,
+        max_lines: int = 3,
+        is_game_events: bool = False,
+    ) -> list[dict[str, Any] | None]:
+        """Simulates event timeline to allocate events to lines/slots.
+
+        Tracks slots and expires events dynamically as time advances.
+
+        Args:
+            event_list: A list of logged event dicts containing 'time' and
+                'desc'.
+            time_ms: The target timestamp in milliseconds.
+            fade_time_ms: The default display duration in milliseconds.
+            max_lines: Maximum number of slots to display.
+            is_game_events: True to enable dynamic nuke durations.
+
+        Returns:
+            list[dict[str, Any] | None]: List of slots with active events.
+        """
+        sorted_events = sorted(event_list, key=lambda e: e['time'])
+        slots: list[dict[str, Any] | None] = [None] * max_lines
+
+        for ev in sorted_events:
+            ev_time = ev['time']
+            if ev_time > time_ms:
+                break
+
+            for i in range(max_lines):
+                slot = slots[i]
+                if slot is not None and slot['end'] <= ev_time:
+                    slots[i] = None
+
+            is_nuke_act = False
+            duration = fade_time_ms
+
+            if is_game_events and ev.get('is_important'):
+                if 'activates nuke' in ev['desc']:
+                    is_nuke_act = True
+                    t_end = time_ms
+                    for n_start, n_end, _ in self.nuke_intervals:
+                        if n_start == ev_time:
+                            t_end = n_end
+                            break
+                    duration = t_end - ev_time
+
+            if duration <= 0:
+                continue
+
+            slot_idx = -1
+            for i in range(max_lines):
+                if slots[i] is None:
+                    slot_idx = i
+                    break
+
+            if slot_idx != -1:
+                slots[slot_idx] = {
+                    'text': ev['desc'],
+                    'start': ev_time,
+                    'end': ev_time + duration,
+                    'is_nuke_act': is_nuke_act,
+                    'duration': duration,
+                }
+
+        for i in range(max_lines):
+            slot = slots[i]
+            if slot is not None and slot['end'] <= time_ms:
+                slots[i] = None
+
+        return slots
+
     def _add_player_event_hud_element(
         self,
         elements: list[UIElement],
         time_ms: int,
         anim: str,
     ) -> None:
-        """Adds recent player-specific event HUD element if active.
+        """Adds recent player-specific event HUD elements if active.
 
         Args:
             elements: List of visual elements to append to.
@@ -970,28 +1044,40 @@ class VisualElementGenerator:
             return
 
         el_config = self.config.get('elements', {}).get('player_events', {})
+        if not el_config.get('enabled', True):
+            return
+
         fade_time_s = el_config.get('fade_out_time')
         if fade_time_s is None:
             fade_time_s = self.config.get('fade_out_time', 3.0)
         fade_time_ms = int(fade_time_s * 1000)
 
-        active_p_events = []
-        for ev in self.player_event_log:
-            if time_ms - fade_time_ms <= ev['time'] <= time_ms:
-                active_p_events.append(ev)
+        slots = self._get_active_multiline_lines(
+            event_list=self.player_event_log,
+            time_ms=time_ms,
+            fade_time_ms=fade_time_ms,
+            max_lines=3,
+            is_game_events=False,
+        )
 
-        if active_p_events:
-            recent_ev = active_p_events[-1]
-            elapsed_ms = time_ms - recent_ev['time']
-            alpha = get_fade_alpha(elapsed_ms, fade_time_ms, anim)
-            el_pevent = self._create_ui_element(
-                'player_events',
-                text=recent_ev['desc'],
-                element_type='text',
-                alpha=alpha,
-            )
-            if el_pevent:
-                elements.append(el_pevent)
+        base_y = el_config.get('y', 0.2)
+        font_size = el_config.get('style', {}).get('size', 18)
+        line_height = (font_size * 1.3) / 800
+
+        for line_idx, slot in enumerate(slots):
+            if slot is not None:
+                elapsed = time_ms - slot['start']
+                alpha = get_fade_alpha(elapsed, slot['duration'], anim)
+                y_offset = base_y + line_idx * line_height
+                el = self._create_ui_element(
+                    'player_events',
+                    text=slot['text'],
+                    element_type='text',
+                    alpha=alpha,
+                )
+                if el:
+                    el.y = y_offset
+                    elements.append(el)
 
     def _add_game_event_hud_element(
         self,
@@ -999,56 +1085,56 @@ class VisualElementGenerator:
         time_ms: int,
         anim: str,
     ) -> None:
-        """Adds recent important game event HUD element if active.
+        """Adds recent important game event HUD elements if active.
 
         Args:
             elements: List of visual elements to append to.
             time_ms: Current millisecond timestamp.
             anim: Animation function name.
         """
-        # First, check if there is an active nuke activation interval
-        active_nuke_msg = None
-        for start_ms, end_ms, player_name in self.nuke_intervals:
-            if start_ms <= time_ms < end_ms:
-                active_nuke_msg = f'{player_name} activates nuke'
-                break
-
-        if active_nuke_msg:
-            el_gevent = self._create_ui_element(
-                'game_events',
-                text=active_nuke_msg,
-                element_type='text',
-                alpha=1.0,
-            )
-            if el_gevent:
-                elements.append(el_gevent)
+        el_config = self.config.get('elements', {}).get('game_events', {})
+        if not el_config.get('enabled', True):
             return
 
-        # Otherwise, check important game events with 5s fade
-        el_config = self.config.get('elements', {}).get('game_events', {})
         fade_time_s = el_config.get('fade_out_time')
         if fade_time_s is None:
             fade_time_s = self.config.get('fade_out_time', 5.0)
         fade_time_ms = int(fade_time_s * 1000)
 
-        active_g_events = []
-        for ev in self.event_log:
-            if time_ms - fade_time_ms <= ev['time'] <= time_ms:
-                if ev['is_important']:
-                    active_g_events.append(ev)
+        important_events = [
+            ev for ev in self.event_log if ev.get('is_important')
+        ]
 
-        if active_g_events:
-            recent_ev = active_g_events[-1]
-            elapsed_ms = time_ms - recent_ev['time']
-            alpha = get_fade_alpha(elapsed_ms, fade_time_ms, anim)
-            el_gevent = self._create_ui_element(
-                'game_events',
-                text=recent_ev['desc'],
-                element_type='text',
-                alpha=alpha,
-            )
-            if el_gevent:
-                elements.append(el_gevent)
+        slots = self._get_active_multiline_lines(
+            event_list=important_events,
+            time_ms=time_ms,
+            fade_time_ms=fade_time_ms,
+            max_lines=3,
+            is_game_events=True,
+        )
+
+        base_y = el_config.get('y', 0.25)
+        font_size = el_config.get('style', {}).get('size', 20)
+        line_height = (font_size * 1.3) / 800
+
+        for line_idx, slot in enumerate(slots):
+            if slot is not None:
+                if slot['is_nuke_act']:
+                    alpha = 1.0
+                else:
+                    elapsed = time_ms - slot['start']
+                    alpha = get_fade_alpha(elapsed, slot['duration'], anim)
+
+                y_offset = base_y + line_idx * line_height
+                el = self._create_ui_element(
+                    'game_events',
+                    text=slot['text'],
+                    element_type='text',
+                    alpha=alpha,
+                )
+                if el:
+                    el.y = y_offset
+                    elements.append(el)
 
     def _add_event_hud_elements(
         self,

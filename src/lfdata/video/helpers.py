@@ -18,14 +18,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
     'elements': {
         'game_type': {
             'enabled': True,
-            'x': 0.95,
-            'y': 0.9,
+            'x': 0.98,
+            'y': 0.96,
             'align': 'right',
             'style': {'size': 14},
         },
         'time': {
             'enabled': True,
-            'x': 0.95,
+            'x': 0.98,
             'y': 0.22,
             'align': 'right',
             'style': {
@@ -49,8 +49,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         'player_lives': {
             'enabled': True,
-            'x': 0.2,
-            'y': 0.9,
+            'x': 0.25,
+            'y': 0.92,
             'extents': [0.05, 0.05],
             'align': 'left',
             'icon': 'lives',
@@ -58,8 +58,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         'player_shots': {
             'enabled': True,
-            'x': 0.3,
-            'y': 0.9,
+            'x': 0.35,
+            'y': 0.92,
             'extents': [0.05, 0.05],
             'align': 'left',
             'icon': 'shots',
@@ -67,8 +67,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         'player_missiles': {
             'enabled': True,
-            'x': 0.4,
-            'y': 0.9,
+            'x': 0.45,
+            'y': 0.92,
             'extents': [0.05, 0.05],
             'align': 'left',
             'icon': 'missiles',
@@ -76,8 +76,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         'player_hitpoints': {
             'enabled': True,
-            'x': 0.5,
-            'y': 0.9,
+            'x': 0.55,
+            'y': 0.92,
             'extents': [0.05, 0.05],
             'align': 'left',
             'icon': 'shields',
@@ -85,8 +85,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         'player_special_points': {
             'enabled': True,
-            'x': 0.6,
-            'y': 0.9,
+            'x': 0.65,
+            'y': 0.92,
             'extents': [0.05, 0.05],
             'align': 'left',
             'icon': 'sp',
@@ -94,14 +94,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         'player_score': {
             'enabled': True,
-            'x': 0.95,
+            'x': 0.98,
             'y': 0.05,
             'align': 'right',
-            'style': {'size': 24},
+            'style': {'size': 36},
         },
         'scoreboard': {
             'enabled': True,
-            'x': 0.05,
+            'x': 0.02,
             'y': 0.4,
             'extents': [0.4, 0.4],
             'align': 'left',
@@ -118,14 +118,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
         'player_events': {
             'enabled': True,
             'x': 0.5,
-            'y': 0.2,
+            'y': 0.18,
             'align': 'center',
             'style': {'size': 18},
         },
         'game_events': {
             'enabled': True,
             'x': 0.5,
-            'y': 0.25,
+            'y': 0.28,
             'align': 'center',
             'style': {'size': 20},
         },

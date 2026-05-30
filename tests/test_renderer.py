@@ -516,6 +516,54 @@ def test_generate_frames_progress() -> None:
         assert mock_render.call_count == 5
 
 
+def test_duration_formatting_and_progress_logging() -> None:
+    from pathlib import Path
+    from unittest.mock import patch, MagicMock
+    from lfdata.video.renderer import VideoGenerator
+    from lfdata.model import LFGame
+
+    game = LFGame(game_id='test_progress_new', game_type='SM5')
+    vg = VideoGenerator(game)
+
+    # Test _format_duration directly
+    assert vg._format_duration(45.5) == '45s'
+    assert vg._format_duration(125.0) == '2m 5s'
+    assert vg._format_duration(3665.0) == '1h 1m 5s'
+
+    # Test progress logging
+    with (
+        patch.object(vg, '_render_and_save_frame'),
+        patch('os.cpu_count', return_value=1),
+        patch('time.time') as mock_time,
+        patch('builtins.print') as mock_print,
+    ):
+        t = 100.0
+
+        def tick():
+            nonlocal t
+            t += 10.0
+            return t
+
+        mock_time.side_effect = tick
+
+        hud_gen = MagicMock()
+        vg._generate_frames(
+            temp_path=Path('temp'),
+            start_ms=0,
+            end_ms=400,
+            fps=10,
+            config={},
+            hud_gen=hud_gen,
+        )
+
+        # Check output messages
+        printed_msgs = [args[0] for args, _ in mock_print.call_args_list]
+
+        # There should be a message with elapsed and remaining
+        assert any('elapsed' in msg for msg in printed_msgs)
+        assert any('remaining' in msg for msg in printed_msgs)
+
+
 def test_new_renderer_rules() -> None:
     from unittest.mock import MagicMock, patch
     from PIL import Image
