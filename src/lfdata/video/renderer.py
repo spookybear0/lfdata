@@ -1967,15 +1967,47 @@ class VideoGenerator:
             ]
 
             if pct > 0.0:
-                start_angle = 135
-                end_angle = int(135 + pct * 360)
-                draw.arc(
-                    circle_bbox,
-                    start=start_angle,
-                    end=end_angle,
-                    fill=color,
-                    width=thickness,
-                )
+                start_angle: float = 135.0
+                end_angle: float = 135.0 + pct * 360.0
+
+                segments: list[tuple[float, float]] = [(start_angle, end_angle)]
+
+                if el.indicator_interval and el.indicator_interval > 0 and maximum > 0:
+                    gap_degrees: float = 12.0
+                    indicator_values: list[int] = []
+                    val: int = el.indicator_interval
+                    while val < maximum:
+                        indicator_values.append(val)
+                        val += el.indicator_interval
+
+                    for v in indicator_values:
+                        angle_v: float = 135.0 + (v / maximum) * 360.0
+                        gap_start: float = angle_v - gap_degrees / 2.0
+                        gap_end: float = angle_v + gap_degrees / 2.0
+
+                        new_segments: list[tuple[float, float]] = []
+                        for seg_start, seg_end in segments:
+                            if gap_end <= seg_start or gap_start >= seg_end:
+                                new_segments.append((seg_start, seg_end))
+                            else:
+                                if gap_start <= seg_start < gap_end < seg_end:
+                                    new_segments.append((gap_end, seg_end))
+                                elif seg_start < gap_start < seg_end <= gap_end:
+                                    new_segments.append((seg_start, gap_start))
+                                elif seg_start < gap_start and gap_end < seg_end:
+                                    new_segments.append((seg_start, gap_start))
+                                    new_segments.append((gap_end, seg_end))
+                        segments = new_segments
+
+                for seg_start, seg_end in segments:
+                    if seg_end - seg_start >= 0.1:
+                        draw.arc(
+                            circle_bbox,
+                            start=seg_start,
+                            end=seg_end,
+                            fill=color,
+                            width=thickness,
+                        )
 
             if el.icon:
                 icon_path = self._get_icon_path(el.icon)

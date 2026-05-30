@@ -832,3 +832,150 @@ def test_multiline_text_slot_allocation() -> None:
     # line_height = (18 * 1.3) / 800 = 0.02925
     assert abs(pe1.y - 0.18) < 1e-7
     assert abs(pe2.y - 0.20925) < 1e-7
+
+
+def test_indicator_interval_configuration() -> None:
+    """Verifies parsing of indicator interval from config and default rules."""
+    from datetime import datetime
+    from lfdata.model import LFGame, LFRole
+    from lfdata.video import VisualElementGenerator
+    from lfdata.replay.state import LFReplayPlayerState
+
+    game = LFGame(
+        game_id='test_indicator_game',
+        timestamp=datetime.now(),
+        game_type='SM5',
+    )
+    # 1. Test helper parsing
+    gen = VisualElementGenerator(game, 'Player1')
+    assert gen._parse_indicator_interval(20) == 20
+    assert gen._parse_indicator_interval('every 20') == 20
+    assert gen._parse_indicator_interval('every 15') == 15
+    assert gen._parse_indicator_interval('None') is None
+    assert gen._parse_indicator_interval('none') is None
+    assert gen._parse_indicator_interval(None) is None
+    assert gen._parse_indicator_interval(0) is None
+    assert gen._parse_indicator_interval(-5) is None
+
+    # 2. Test default rules for role-based counters
+    p_state = LFReplayPlayerState('P1', LFRole.COMMANDER, 0)
+    elements = []
+    gen._add_player_stats_hud_elements(elements, p_state)
+    counters = {
+        el.icon: el for el in elements if el.element_type == 'counter'
+    }
+    assert counters['missiles'].indicator_interval == 1
+    assert counters['shields'].indicator_interval == 1
+    assert counters['sp'].indicator_interval == 20
+
+    # Medic
+    p_medic = LFReplayPlayerState('P2', LFRole.MEDIC, 0)
+    elements_med = []
+    gen._add_player_stats_hud_elements(elements_med, p_medic)
+    counters_med = {
+        el.icon: el for el in elements_med if el.element_type == 'counter'
+    }
+    assert counters_med['sp'].indicator_interval == 10
+
+    # Scout
+    p_scout = LFReplayPlayerState('P3', LFRole.SCOUT, 0)
+    elements_sct = []
+    gen._add_player_stats_hud_elements(elements_sct, p_scout)
+    counters_sct = {
+        el.icon: el for el in elements_sct if el.element_type == 'counter'
+    }
+    assert counters_sct['sp'].indicator_interval == 15
+
+    # 3. Test configuration overrides
+    gen_override = VisualElementGenerator(
+        game,
+        'Player1',
+        config={
+            'elements': {
+                'player_special_points': {'indicator_interval': 5},
+                'player_missiles': {'indicator_interval': 'every 2'},
+            }
+        },
+    )
+    elements_over = []
+    gen_override._add_player_stats_hud_elements(elements_over, p_state)
+    counters_over = {
+        el.icon: el for el in elements_over if el.element_type == 'counter'
+    }
+    assert counters_over['sp'].indicator_interval == 5
+    assert counters_over['missiles'].indicator_interval == 2
+
+
+def test_double_resupply_in_place_replacement() -> None:
+    """Verifies that a double resupply replaces the previous resupply event."""
+    from datetime import datetime
+    from lfdata.model import LFGame, GameEvent
+    from lfdata.video import VisualElementGenerator
+
+    game = LFGame(
+        game_id='test_double_resup_game',
+        timestamp=datetime.now(),
+        game_type='SM5',
+    )
+    gen = VisualElementGenerator(game, 'Player1')
+    gen.entity_id = 'P1'
+    gen.entity_names = {'P1': 'Player1', 'A1': 'AmmoX', 'M1': 'MedicY'}
+    from unittest.mock import MagicMock
+    mock_replay = MagicMock()
+    mock_replay.game_state.players = {}
+    mock_replay.game_state.teams = {}
+
+    # Bypass snapshots early exit
+    gen.snapshots = [(0, {}, {}), (0, {}, {})]
+
+    # 1. Simulate single ammo resupply at 1000ms
+    ev1 = GameEvent(
+        game_id='test_double_resup_game',
+        time=1000,
+        event_type='0500',
+        actor_entity_id='A1',
+        target_entity_id='P1',
+    )
+    gen._process_hud_event_triggers(ev1, mock_replay, '')
+
+    assert len(gen.player_event_log) == 1
+    assert gen.player_event_log[0]['desc'] == 'Resupplied shots by AmmoX'
+    assert gen.player_event_log[0]['time'] == 1000
+
+    # 2. Simulate medic resupply at 1500ms (within 1000ms, triggering double-resupply)
+    ev2 = GameEvent(
+        game_id='test_double_resup_game',
+        time=1500,
+        event_type='0502',
+        actor_entity_id='M1',
+        target_entity_id='P1',
+    )
+    gen._process_hud_event_triggers(ev2, mock_replay, '')
+
+    # Verifies that it replaced in-place and NO new event was appended
+    assert len(gen.player_event_log) == 1
+    event_entry = gen.player_event_log[0]
+    assert event_entry['time'] == 1000
+    assert event_entry['desc'] == 'Resupplied shots by AmmoX'
+    assert event_entry['double_resup_desc'] == 'Double-resupply by AmmoX and MedicY'
+    assert event_entry['double_resup_time'] == 1500
+
+    # 3. Verify multiline slot allocation resolves correctly at different times
+    # At t = 1200ms: should show original single resupply text
+    slots_1200 = gen._get_active_multiline_lines(
+        event_list=gen.player_event_log,
+        time_ms=1200,
+        fade_time_ms=3000,
+    )
+    assert slots_1200[0] is not None
+    assert slots_1200[0]['text'] == 'Resupplied shots by AmmoX'
+
+    # At t = 1600ms: should show double resupply text
+    slots_1600 = gen._get_active_multiline_lines(
+        event_list=gen.player_event_log,
+        time_ms=1600,
+        fade_time_ms=3000,
+    )
+    assert slots_1600[0] is not None
+    assert slots_1600[0]['text'] == 'Double-resupply by AmmoX and MedicY'
+

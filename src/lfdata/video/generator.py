@@ -2,6 +2,7 @@
 
 import bisect
 import random
+import re
 from typing import Any
 
 from lfdata.model import GameEvent, LFGame, LFRole
@@ -435,6 +436,10 @@ class VisualElementGenerator:
                             f'Double-resupply by {actor_name} and '
                             f'{self._last_medic_resup[1]}'
                         )
+                        if self._update_double_resupply_event(
+                            self._last_medic_resup[0], event.time, msg
+                        ):
+                            msg = None
                     else:
                         msg = f'Resupplied shots by {actor_name}'
                 else:
@@ -447,6 +452,10 @@ class VisualElementGenerator:
                             f'Double-resupply by {self._last_ammo_resup[1]} '
                             f'and {actor_name}'
                         )
+                        if self._update_double_resupply_event(
+                            self._last_ammo_resup[0], event.time, msg
+                        ):
+                            msg = None
                     else:
                         msg = f'Resupplied lives by {actor_name}'
 
@@ -611,6 +620,61 @@ class VisualElementGenerator:
             return 'top left'
         return ''
 
+    def _parse_indicator_interval(self, val: Any) -> int | None:
+        """Parses a visual indicator interval from configuration value.
+
+        Args:
+            val: The configuration value (int or str).
+
+        Returns:
+            int | None: The parsed interval integer, or None if invalid/none.
+        """
+        if val is None:
+            return None
+        if isinstance(val, int):
+            return val if val > 0 else None
+        if isinstance(val, str):
+            val_clean = val.strip().lower()
+            if val_clean in ('none', 'null', ''):
+                return None
+            match = re.search(r'\d+', val_clean)
+            if match:
+                parsed = int(match.group())
+                return parsed if parsed > 0 else None
+        return None
+
+    def _update_double_resupply_event(
+        self, prev_time: int, event_time: int, double_resup_msg: str
+    ) -> bool:
+        """Finds and replaces the last single resupply event with double resupply.
+
+        Args:
+            prev_time: The timestamp of the previous resupply event.
+            event_time: The timestamp of the current double resupply event.
+            double_resup_msg: The double resupply description string.
+
+        Returns:
+            bool: True if the previous event was found and updated, else False.
+        """
+        el_config: dict[str, Any] = self.config.get('elements', {}).get(
+            'player_events', {}
+        )
+        fade_time_s: float | None = el_config.get('fade_out_time')
+        if fade_time_s is None:
+            fade_time_s = self.config.get('fade_out_time', 3.0)
+        fade_time_ms: int = int(fade_time_s * 1000)
+
+        for ev in reversed(self.player_event_log):
+            if (
+                ev['time'] == prev_time
+                and ev['desc'].startswith('Resupplied ')
+            ):
+                ev['double_resup_desc'] = double_resup_msg
+                ev['double_resup_time'] = event_time
+                ev['duration'] = (event_time - prev_time) + fade_time_ms
+                return True
+        return False
+
     def _create_ui_element(
         self, element_key: str, text: str | None = None, **kwargs: Any
     ) -> UIElement | None:
@@ -645,6 +709,19 @@ class VisualElementGenerator:
         if 'icon' not in kwargs_copy and icon is not None:
             kwargs_copy['icon'] = icon
 
+        kwarg_indicator = kwargs_copy.pop('indicator_interval', None)
+
+        config_indicator = (
+            el_config.get('indicator_interval')
+            or el_config.get('indicator')
+            or el_config.get('interval')
+            or el_config.get('indicators')
+        )
+        if config_indicator is not None:
+            indicator_interval = self._parse_indicator_interval(config_indicator)
+        else:
+            indicator_interval = kwarg_indicator
+
         return UIElement(
             element_type=elem_type,
             position=pos_compat,
@@ -653,6 +730,7 @@ class VisualElementGenerator:
             x=x,
             y=y,
             align=align,
+            indicator_interval=indicator_interval,
             **kwargs_copy,
         )
 
@@ -882,6 +960,7 @@ class VisualElementGenerator:
                 element_type='counter',
                 current_value=p_state.missiles,
                 max_value=p_state.role.start_missiles,
+                indicator_interval=1,
             )
             if el_missiles:
                 elements.append(el_missiles)
@@ -892,15 +971,26 @@ class VisualElementGenerator:
                 element_type='counter',
                 current_value=p_state.hp,
                 max_value=p_state.max_hp,
+                indicator_interval=1,
             )
             if el_hp:
                 elements.append(el_hp)
+
+        if p_state.role == LFRole.COMMANDER:
+            sp_interval = 20
+        elif p_state.role in (LFRole.SCOUT, LFRole.AMMO):
+            sp_interval = 15
+        elif p_state.role == LFRole.MEDIC:
+            sp_interval = 10
+        else:
+            sp_interval = None
 
         el_pspec = self._create_ui_element(
             'player_special_points',
             element_type='counter',
             current_value=p_state.special_points,
             max_value=100,
+            indicator_interval=sp_interval,
         )
         if el_pspec:
             elements.append(el_pspec)
@@ -991,7 +1081,7 @@ class VisualElementGenerator:
                     slots[i] = None
 
             is_nuke_act = False
-            duration = fade_time_ms
+            duration = ev.get('duration', fade_time_ms)
 
             if is_game_events and ev.get('is_important'):
                 if 'activates nuke' in ev['desc']:
@@ -1013,8 +1103,12 @@ class VisualElementGenerator:
                     break
 
             if slot_idx != -1:
+                text: str = ev['desc']
+                if 'double_resup_desc' in ev and time_ms >= ev['double_resup_time']:
+                    text = ev['double_resup_desc']
+
                 slots[slot_idx] = {
-                    'text': ev['desc'],
+                    'text': text,
                     'start': ev_time,
                     'end': ev_time + duration,
                     'is_nuke_act': is_nuke_act,

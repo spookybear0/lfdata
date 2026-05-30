@@ -1133,3 +1133,51 @@ def test_generate_video_piped_alpha(tmp_path) -> None:
         # Check that both processes had frames written to stdin
         assert mock_stdin_main.write.call_count > 0
         assert mock_stdin_alpha.write.call_count > 0
+
+
+def test_counter_indicator_rendering() -> None:
+    """Verifies that counter arc is rendered in segments to leave gaps."""
+    from unittest.mock import MagicMock, patch
+    from PIL import Image
+    from lfdata.model import LFGame
+    from lfdata.video.element import UIElement, UIElementStyle
+    from lfdata.video.renderer import VideoGenerator
+
+    game = LFGame(game_id='test_indicator_render', game_type='SM5')
+    vg = VideoGenerator(game)
+
+    img = Image.new('RGBA', (800, 600), (0, 0, 0, 0))
+    el = UIElement(
+        element_type='counter',
+        x=0.1,
+        y=0.1,
+        extents=[0.05, 0.05],
+        current_value=50,
+        max_value=100,
+        indicator_interval=20,
+        style=UIElementStyle(size=18),
+    )
+
+    mock_draw = MagicMock()
+    with patch('PIL.ImageDraw.Draw', return_value=mock_draw):
+        vg._draw_counter(img, el, {})
+
+        # Verify draw.arc calls
+        # There should be 3 arc segments because of gaps at 20 and 40
+        assert mock_draw.arc.call_count == 3
+
+        call_args_list = mock_draw.arc.call_args_list
+        # Segment 1: [135.0, 201.0]
+        args1, kwargs1 = call_args_list[0]
+        assert abs(kwargs1['start'] - 135.0) < 1e-7
+        assert abs(kwargs1['end'] - 201.0) < 1e-7
+
+        # Segment 2: [213.0, 273.0]
+        args2, kwargs2 = call_args_list[1]
+        assert abs(kwargs2['start'] - 213.0) < 1e-7
+        assert abs(kwargs2['end'] - 273.0) < 1e-7
+
+        # Segment 3: [285.0, 315.0]
+        args3, kwargs3 = call_args_list[2]
+        assert abs(kwargs3['start'] - 285.0) < 1e-7
+        assert abs(kwargs3['end'] - 315.0) < 1e-7

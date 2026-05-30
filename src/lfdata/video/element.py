@@ -33,5 +33,6 @@ class UIElement:
     icon: str | None = None
     current_value: int | None = None
     max_value: int | None = None
+    indicator_interval: int | None = None
     events_data: list[dict[str, any]] | None = None
     player_to_color: dict[str, str] | None = None

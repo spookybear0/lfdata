@@ -126,6 +126,9 @@ the element.
     * An icon in its center.
     * A string to its right indicating the current and the max with a slash, like
       `15/20`. The color uses the same schema as the circle.
+    * Optionally, counters can have visual indicators at regular intervals to indicate
+      specific values. For example, an indicator "every 20" would add a gap in the arc at
+      the 20, 40, 60 marks up to the end.
 * **Scoreboard**: Tables with scores of each team, details below.
 * **Event scroller**: A list of events that happened up to this point. Whenever an
   event of any type happens, it will be added to the bottom and the scroller will
@@ -163,6 +166,12 @@ If specified, the extents are the length and width as X, Y using the same units.
 Special considerations:
 
 * **Time**: Use the font `advanced_pixel_lcd-7` by default.
+* **Missiles** and **hit points**: Visual indicators at every point.
+* **Special points**: Visual indicators at the interval depending on the role:
+  * **Commander**: Every 20.
+  * **Scout** and **Ammo**: Every 15.
+  * **Medic**: Every 10.
+  * **Heavy**: None.
 
 ## Scoreboard
 
