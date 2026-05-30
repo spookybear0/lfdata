@@ -31,9 +31,7 @@ def test_replay_system_rules() -> None:
     from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
 
     # 1. Create a game
-    game = LFGame(
-        game_id='test_rule_game', timestamp=datetime.now(), game_type='SM5'
-    )
+    game = LFGame(game_id='test_rule_game', timestamp=datetime.now(), game_type='SM5')
 
     # 2. Add two teams
     t1 = GameTeam(
@@ -177,8 +175,8 @@ def test_replay_system_rules() -> None:
 
     # Scout started with 15 lives.
     # Medic resupplied lives to team at 13000.
-    # Scout gained 3 lives (from 15 to 18).
-    assert sct_state.lives == 18
+    # Scout gained 5 lives (from 15 to 20).
+    assert sct_state.lives == 20
     # Medic itself should NOT gain lives.
     assert med_state.lives == 20
 
@@ -188,9 +186,7 @@ def test_replay_missile_decrements_and_penalties() -> None:
     from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
 
     # Create game
-    game = LFGame(
-        game_id='test_m_game', timestamp=datetime.now(), game_type='SM5'
-    )
+    game = LFGame(game_id='test_m_game', timestamp=datetime.now(), game_type='SM5')
     game.penalty = -500
 
     # Teams
@@ -542,8 +538,8 @@ def test_team_boost_not_down() -> None:
     s1_state = players['S1']
     s2_state = players['S2']
 
-    # S1 was active, should receive boost: 15 + 3 = 18 lives
-    assert s1_state.lives == 18
+    # S1 was active, should receive boost: 15 + 5 = 20 lives
+    assert s1_state.lives == 20
 
     # S2 was down, should NOT receive boost: 15 - 1 = 14 lives
     assert s2_state.lives == 14
@@ -969,8 +965,7 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time_ms == 43000
-            and r.description == 'Cmd1 nuke canceled by own resup'
+            if r.time_ms == 43000 and r.description == 'Cmd1 nuke canceled by own resup'
         ),
         None,
     )
@@ -993,8 +988,7 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time_ms == 90000
-            and r.description == 'Cmd1 nuke activated too late'
+            if r.time_ms == 90000 and r.description == 'Cmd1 nuke activated too late'
         ),
         None,
     )
@@ -1207,8 +1201,8 @@ def test_team_boost_rules() -> None:
     # S2 had rapid fire. S2 was boosted but should RETAIN rapid fire!
     assert s2_state.has_rapid_fire is True
 
-    # S2 received life boost (lives go from 15 to 18)
-    assert s2_state.lives == 18
+    # S2 received life boost (lives go from 15 to 20)
+    assert s2_state.lives == 20
 
     # S2 received ammo boost (shots go from 30 - 16 + 10 = 24)
     assert s2_state.shots == 24

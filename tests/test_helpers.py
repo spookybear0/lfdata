@@ -1,6 +1,7 @@
 """Tests for video helpers."""
 
 from lfdata.video.helpers import (
+    LFTeamTransition,
     _merge_configs,
     apply_animation,
     get_fade_alpha,
@@ -49,7 +50,10 @@ def test_get_fade_alpha() -> None:
 
 
 def test_get_visual_rank() -> None:
-    transitions = [(1000, 1.0, 2), (3000, 2.0, 1)]
+    transitions = [
+        LFTeamTransition(event_time_ms=1000, visual_rank=1.0, ranking=2),
+        LFTeamTransition(event_time_ms=3000, visual_rank=2.0, ranking=1),
+    ]
     assert get_visual_rank(0, 500, transitions, 1, 'linear') == 1.0
     assert get_visual_rank(0, 1500, transitions, 1, 'linear') == 1.5
     assert get_visual_rank(0, 2500, transitions, 1, 'linear') == 2.0

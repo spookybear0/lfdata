@@ -1,6 +1,22 @@
 """Visual helpers and default configurations for LF video generation."""
 
+import dataclasses
 from typing import Any
+
+
+@dataclasses.dataclass
+class LFTeamTransition:
+    """Represents a team rank transition at a specific timestamp.
+
+    Attributes:
+        event_time_ms: The millisecond timestamp of the transition.
+        visual_rank: The animated visual rank position of the team.
+        ranking: The actual scoreboard ranking of the team.
+    """
+
+    event_time_ms: int
+    visual_rank: float
+    ranking: int
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -142,9 +158,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 
-def _merge_configs(
-    base: dict[str, Any], loaded: dict[str, Any]
-) -> dict[str, Any]:
+def _merge_configs(base: dict[str, Any], loaded: dict[str, Any]) -> dict[str, Any]:
     """Recursively merges a loaded configuration dict into base defaults.
 
     Args:
@@ -266,7 +280,7 @@ def get_fade_alpha(elapsed_ms: int, total_ms: int, function_name: str) -> float:
 def get_visual_rank(
     team_idx: int,
     t_ms: int,
-    transitions: list[tuple[int, float, int]],
+    transitions: list[LFTeamTransition],
     final_rank: int,
     animation_func: str,
 ) -> float:
@@ -284,20 +298,22 @@ def get_visual_rank(
     """
     last_trans = None
     for trans in transitions:
-        if trans[0] <= t_ms:
+        if trans.event_time_ms <= t_ms:
             last_trans = trans
         else:
             break
 
     if last_trans is None:
         if transitions:
-            return transitions[0][1]
+            return transitions[0].visual_rank
         return float(final_rank)
 
-    t_start_ms, v_start, target_rank = last_trans
-    elapsed_ms = t_ms - t_start_ms
+    elapsed_ms = t_ms - last_trans.event_time_ms
     if elapsed_ms < 1000:
         p = elapsed_ms / 1000.0
         p_anim = apply_animation(p, animation_func)
-        return v_start + (target_rank - v_start) * p_anim
-    return float(target_rank)
+        return (
+            last_trans.visual_rank
+            + (last_trans.ranking - last_trans.visual_rank) * p_anim
+        )
+    return float(last_trans.ranking)

@@ -2,6 +2,7 @@
 changes.
 """
 
+import dataclasses
 from lfdata.model import GameEvent, LFGame, LFRole, LFTeamType
 from lfdata.replay.handlers import LFReplayHandlersMixin
 from lfdata.replay.record import LFReplayEventRecord
@@ -10,6 +11,19 @@ from lfdata.replay.state import (
     LFReplayPlayerState,
     LFReplayTeamState,
 )
+
+
+@dataclasses.dataclass
+class LFNukeCancelDetails:
+    """Timestamp and reason for why a nuke was canceled.
+
+    Attributes:
+        cancel_ms: The millisecond timestamp when the nuke was canceled.
+        cancel_reason: The reason for the nuke cancel.
+    """
+
+    cancel_ms: int
+    cancel_reason: str
 
 
 class LFReplaySystem(LFReplayHandlersMixin):
@@ -25,13 +39,9 @@ class LFReplaySystem(LFReplayHandlersMixin):
         self._detect_and_inject_nuke_cancels()
         self.player_states: list[LFReplayPlayerState] = []
         self.team_states: list[LFReplayTeamState] = []
-        self.entity_names: dict[str, str] = {
-            e.entity_id: e.desc for e in game.entities
-        }
+        self.entity_names: dict[str, str] = {e.entity_id: e.desc for e in game.entities}
         self._init_states()
-        self.game_state = LFReplayGameState(
-            self.player_states, self.team_states
-        )
+        self.game_state = LFReplayGameState(self.player_states, self.team_states)
         self.records: list[LFReplayEventRecord] = []
         self.game_ended_at_ms: int | None = None
 
@@ -64,9 +74,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
                 except ValueError:
                     role = LFRole.SCOUT
                 self.player_states.append(
-                    LFReplayPlayerState(
-                        entity.entity_id, role, entity.team_index
-                    )
+                    LFReplayPlayerState(entity.entity_id, role, entity.team_index)
                 )
 
     def run(self) -> list[LFReplayEventRecord]:
@@ -87,9 +95,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
             description = self._dispatch_event(event)
 
             self.game_state.update_team_scores_and_rankings()
-            player_changes, team_changes = self._build_changes(
-                player_snap, team_snap
-            )
+            player_changes, team_changes = self._build_changes(player_snap, team_snap)
 
             record = LFReplayEventRecord(
                 event_id=event.id or 0,
@@ -106,9 +112,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
 
         return self.records
 
-    def _find_mission_end_ms(
-        self, sorted_events: list[GameEvent]
-    ) -> int | None:
+    def _find_mission_end_ms(self, sorted_events: list[GameEvent]) -> int | None:
         """Finds the mission end timestamp (0101) from the sorted events list.
 
         Args:
@@ -143,10 +147,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
         for check_ev in sorted_events[index + 1 :]:
             if check_ev.time > activate_ms + 10000:
                 break
-            if (
-                check_ev.event_type == '0405'
-                and check_ev.actor_entity_id == nuker_id
-            ):
+            if check_ev.event_type == '0405' and check_ev.actor_entity_id == nuker_id:
                 return True
         return False
 
@@ -199,7 +200,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
         activate_ms: int,
         player_teams: dict[str, int],
         mission_end_ms: int | None,
-    ) -> tuple[int, str]:
+    ) -> LFNukeCancelDetails:
         """Scans future events to determine why a nuke was canceled.
 
         Args:
@@ -211,7 +212,8 @@ class LFReplaySystem(LFReplayHandlersMixin):
             mission_end_ms: The mission end timestamp in milliseconds, if any.
 
         Returns:
-            tuple[int, str]: The cancel timestamp and cancel reason.
+            LFNukeCancelDetails: The cancel details object containing timestamp
+                and reason.
         """
         cancel_ms = activate_ms + 10000
         cancel_reason = 'nuke activated too late'
@@ -233,7 +235,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
                 cancel_ms = check_ev.time
                 break
 
-        return cancel_ms, cancel_reason
+        return LFNukeCancelDetails(cancel_ms=cancel_ms, cancel_reason=cancel_reason)
 
     def _inject_cancel_event(
         self,
@@ -273,9 +275,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
             return
 
         player_teams = {
-            e.entity_id: e.team_index
-            for e in self.game.entities
-            if e.type == 'player'
+            e.entity_id: e.team_index for e in self.game.entities if e.type == 'player'
         }
         sorted_events = sorted(self.game.events, key=lambda e: e.time)
         mission_end_ms = self._find_mission_end_ms(sorted_events)
@@ -293,7 +293,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
             if self._is_nuke_detonated(sorted_events, i, nuker_id, activate_ms):
                 continue
 
-            cancel_ms, cancel_reason = self._determine_nuke_cancel_details(
+            cancel_details = self._determine_nuke_cancel_details(
                 sorted_events=sorted_events,
                 index=i,
                 nuker_id=nuker_id,
@@ -303,9 +303,9 @@ class LFReplaySystem(LFReplayHandlersMixin):
             )
 
             self._inject_cancel_event(
-                cancel_ms=cancel_ms,
+                cancel_ms=cancel_details.cancel_ms,
                 nuker_id=nuker_id,
-                cancel_reason=cancel_reason,
+                cancel_reason=cancel_details.cancel_reason,
                 injected_cancels=injected_cancels,
             )
 
@@ -474,9 +474,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
         eliminated_teams = set()
         for team_idx in active_teams:
             team_players = [
-                p
-                for p in self.game_state.players.values()
-                if p.team_index == team_idx
+                p for p in self.game_state.players.values() if p.team_index == team_idx
             ]
             if all(p.is_eliminated() for p in team_players):
                 eliminated_teams.add(team_idx)
@@ -504,8 +502,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
                             player.captured_bases.add(base.entity_id)
                             player.score += 1001
                             if not (
-                                player.role == LFRole.SCOUT
-                                and player.has_rapid_fire
+                                player.role == LFRole.SCOUT and player.has_rapid_fire
                             ):
                                 player.special_points += 5
 
@@ -521,9 +518,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
 
         for team_idx in player_teams:
             team_players = [
-                p
-                for p in self.game_state.players.values()
-                if p.team_index == team_idx
+                p for p in self.game_state.players.values() if p.team_index == team_idx
             ]
             if all(p.is_eliminated() for p in team_players):
                 return True

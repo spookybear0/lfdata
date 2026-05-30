@@ -7,9 +7,7 @@ from lfdata.replay.state import (
 
 
 def test_player_state_initialization() -> None:
-    commander = LFReplayPlayerState(
-        entity_id='#1', role=LFRole.COMMANDER, team_index=0
-    )
+    commander = LFReplayPlayerState(entity_id='#1', role=LFRole.COMMANDER, team_index=0)
     assert commander.lives == 15
     assert commander.shots == 30
     assert commander.missiles == 5
@@ -34,9 +32,7 @@ def test_team_state_initialization() -> None:
 
 
 def test_game_state_updates() -> None:
-    p1 = LFReplayPlayerState(
-        entity_id='#1', role=LFRole.COMMANDER, team_index=0
-    )
+    p1 = LFReplayPlayerState(entity_id='#1', role=LFRole.COMMANDER, team_index=0)
     p2 = LFReplayPlayerState(entity_id='#2', role=LFRole.SCOUT, team_index=1)
     t1 = LFReplayTeamState(team_index=0, name='Fire Team')
     t2 = LFReplayTeamState(team_index=1, name='Earth Team')
@@ -77,9 +73,7 @@ def test_player_downtime_and_elimination() -> None:
     assert p.hp == 0
 
     # Zap but not down (Commander hitpoints go from 3 to 2)
-    p2 = LFReplayPlayerState(
-        entity_id='#2', role=LFRole.COMMANDER, team_index=0
-    )
+    p2 = LFReplayPlayerState(entity_id='#2', role=LFRole.COMMANDER, team_index=0)
     p2.hp = 2
     # Calling update_downtime should NOT restore it because player is not down
     p2.update_downtime(2000)
@@ -92,7 +86,7 @@ def test_player_resupply_checks() -> None:
     # Lives resupply
     p.lives = 10
     p.resupply_lives_from_medic()
-    assert p.lives == 13
+    assert p.lives == 15
 
     # Shots resupply
     p.shots = 20

@@ -1,6 +1,7 @@
 """Visual HUD elements generator for LF video frames."""
 
 import bisect
+import dataclasses
 import random
 import re
 from typing import Any
@@ -11,11 +12,40 @@ from lfdata.replay.state import LFReplayPlayerState, LFReplayTeamState
 from lfdata.video.element import UIElement, UIElementStyle
 from lfdata.video.helpers import (
     DEFAULT_CONFIG,
+    LFTeamTransition,
     _merge_configs,
     apply_animation,
     get_fade_alpha,
     get_visual_rank,
 )
+
+
+@dataclasses.dataclass
+class LFResupplyTracker:
+    """Tracks the last resupply event timestamp and actor name.
+
+    Attributes:
+        time_ms: The timestamp in milliseconds of the resupply.
+        actor_name: The codename of the player who resupplied.
+    """
+
+    time_ms: int
+    actor_name: str
+
+
+@dataclasses.dataclass
+class LFNukeInterval:
+    """Represents a nuke activation interval and its activator name.
+
+    Attributes:
+        start_ms: The millisecond timestamp of the activation.
+        end_ms: The millisecond timestamp of detonation or cancellation.
+        nuker_name: The codename of the player who activated the nuke.
+    """
+
+    start_ms: int
+    end_ms: int
+    nuker_name: str
 
 
 class VisualElementGenerator:
@@ -54,9 +84,9 @@ class VisualElementGenerator:
         ] = []
         self.event_log: list[dict[str, Any]] = []
         self.player_event_log: list[dict[str, Any]] = []
-        self._last_ammo_resup: tuple[int, str] | None = None
-        self._last_medic_resup: tuple[int, str] | None = None
-        self.team_transitions: dict[int, list[tuple[int, float, int]]] = {}
+        self._last_ammo_resup: LFResupplyTracker | None = None
+        self._last_medic_resup: LFResupplyTracker | None = None
+        self.team_transitions: dict[int, list[LFTeamTransition]] = {}
         self.game_ended_at_ms: int | None = None
 
         self._precompute_replay()
@@ -189,7 +219,13 @@ class VisualElementGenerator:
                 else:
                     v_curr = float(target_last)
 
-                self.team_transitions[tid].append((event_time_ms, v_curr, t.ranking))
+                self.team_transitions[tid].append(
+                    LFTeamTransition(
+                        event_time_ms=event_time_ms,
+                        visual_rank=v_curr,
+                        ranking=t.ranking,
+                    )
+                )
                 last_trans_time_ms[tid] = event_time_ms
                 visual_rank_at_last_trans[tid] = v_curr
                 team_ranks[tid] = t.ranking
@@ -332,7 +368,7 @@ class VisualElementGenerator:
         Args:
             sorted_events: Chronologically sorted game events list.
         """
-        self.nuke_intervals: list[tuple[int, int, str]] = []
+        self.nuke_intervals: list[LFNukeInterval] = []
         activations = [ev for ev in sorted_events if ev.event_type == '0404']
 
         for act in activations:
@@ -351,7 +387,9 @@ class VisualElementGenerator:
                         break
 
             nuker_name = self.entity_names.get(nuker_id, nuker_id)
-            self.nuke_intervals.append((t_start, t_end, nuker_name))
+            self.nuke_intervals.append(
+                LFNukeInterval(start_ms=t_start, end_ms=t_end, nuker_name=nuker_name)
+            )
 
     def _process_hud_event_triggers(
         self,
@@ -418,33 +456,38 @@ class VisualElementGenerator:
 
             elif et in ('0500', '0502') and target_id == self.entity_id:
                 if et == '0500':
-                    self._last_ammo_resup = (event.time, actor_name)
+                    self._last_ammo_resup = LFResupplyTracker(
+                        time_ms=event.time, actor_name=actor_name
+                    )
                     if (
                         self._last_medic_resup
-                        and event.time - self._last_medic_resup[0] <= 1000
+                        and event.time - self._last_medic_resup.time_ms <= 1000
                     ):
                         msg = (
                             f'Double-resupply by {actor_name} and '
-                            f'{self._last_medic_resup[1]}'
+                            f'{self._last_medic_resup.actor_name}'
                         )
                         if self._update_double_resupply_event(
-                            self._last_medic_resup[0], event.time, msg
+                            self._last_medic_resup.time_ms, event.time, msg
                         ):
                             msg = None
                     else:
                         msg = f'Resupplied shots by {actor_name}'
                 else:
-                    self._last_medic_resup = (event.time, actor_name)
+                    self._last_medic_resup = LFResupplyTracker(
+                        time_ms=event.time, actor_name=actor_name
+                    )
                     if (
                         self._last_ammo_resup
-                        and event.time - self._last_ammo_resup[0] <= 1000
+                        and event.time - self._last_ammo_resup.time_ms <= 1000
                     ):
                         msg = (
-                            f'Double-resupply by {self._last_ammo_resup[1]} '
+                            f'Double-resupply by '
+                            f'{self._last_ammo_resup.actor_name} '
                             f'and {actor_name}'
                         )
                         if self._update_double_resupply_event(
-                            self._last_ammo_resup[0], event.time, msg
+                            self._last_ammo_resup.time_ms, event.time, msg
                         ):
                             msg = None
                     else:
@@ -497,10 +540,7 @@ class VisualElementGenerator:
                 player.role == LFRole.MEDIC
                 and player.lives < prev_player.lives
                 and player.lives > 0
-                and any(
-                    val % 5 == 0
-                    for val in range(player.lives, prev_player.lives)
-                )
+                and any(val % 5 == 0 for val in range(player.lives, prev_player.lives))
             ):
                 p_name = self.entity_names.get(pid, pid)
                 desc = f'Medic {p_name} has {player.lives} left'
@@ -1050,9 +1090,9 @@ class VisualElementGenerator:
                 if 'activates nuke' in ev['desc']:
                     is_nuke_act = True
                     t_end = time_ms
-                    for n_start, n_end, _ in self.nuke_intervals:
-                        if n_start == ev_time:
-                            t_end = n_end
+                    for interval in self.nuke_intervals:
+                        if interval.start_ms == ev_time:
+                            t_end = interval.end_ms
                             break
                     duration = t_end - ev_time
 

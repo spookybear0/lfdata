@@ -1,6 +1,10 @@
 from datetime import datetime
 from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
-from lfdata.video.generator import VisualElementGenerator
+from lfdata.video.generator import (
+    VisualElementGenerator,
+    LFNukeInterval,
+    LFTeamTransition,
+)
 
 
 def test_visual_element_generator() -> None:
@@ -210,8 +214,10 @@ def test_animation_progress_and_fade_alpha() -> None:
 def test_scoreboard_visual_rank_transition() -> None:
     from lfdata.video.generator import get_visual_rank
 
-    # transitions: list of (time, start_visual_rank, target_rank)
-    trans = [(1000, 1.0, 2), (3000, 2.0, 1)]
+    trans = [
+        LFTeamTransition(event_time_ms=1000, visual_rank=1.0, ranking=2),
+        LFTeamTransition(event_time_ms=3000, visual_rank=2.0, ranking=1),
+    ]
     # Before any transition
     assert get_visual_rank(0, 500, trans, 1, 'linear') == 1.0
     # During transition 1 (1000 -> 2000 ms)
@@ -761,7 +767,7 @@ def test_multiline_text_slot_allocation() -> None:
     # 2. Test nuke dynamic durations
     # Nuke activates at 2000, cancels/detonates at 8000
     hud_gen.nuke_intervals = [
-        (2000, 8000, 'CommanderA'),
+        LFNukeInterval(start_ms=2000, end_ms=8000, nuker_name='CommanderA'),
     ]
     hud_gen.event_log = [
         {
