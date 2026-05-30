@@ -362,7 +362,7 @@ class VideoGenerator:
             bytes: The raw RGBA bytes of the rendered image.
         """
         elements = hud_gen.generate_at(time_ms)
-        img = self._render_frame(elements, time_ms, config)
+        img = self._render_frame(elements, time_ms, config, hud_gen)
         try:
             return img.tobytes()
         finally:
@@ -386,7 +386,7 @@ class VideoGenerator:
             hud_gen: Precomputed visual element HUD generator.
         """
         elements = hud_gen.generate_at(time_ms)
-        img = self._render_frame(elements, time_ms, config)
+        img = self._render_frame(elements, time_ms, config, hud_gen)
         try:
             img.save(temp_path / f'frame_{frame_idx:05d}.png')
         finally:
@@ -709,6 +709,7 @@ class VideoGenerator:
 
         if ffmpeg_proc.stdin:
             ffmpeg_proc.stdin.close()
+            ffmpeg_proc.stdin = None
         _, stderr_data = ffmpeg_proc.communicate()
 
         if ffmpeg_proc.returncode != 0:
@@ -786,6 +787,7 @@ class VideoGenerator:
         elements: list[UIElement],
         time_ms: int,
         config: dict[str, Any],
+        hud_gen: VisualElementGenerator,
     ) -> Image.Image:
         """Renders all active UI elements onto an Image object.
 
@@ -793,6 +795,7 @@ class VideoGenerator:
             elements: The active visual elements to render.
             time_ms: The current millisecond timestamp.
             config: The merged video configuration options.
+            hud_gen: Precomputed visual element HUD generator.
 
         Returns:
             Image.Image: The rendered frame image.
@@ -814,6 +817,28 @@ class VideoGenerator:
                 self._draw_event_scroller(img, el, time_ms, config)
 
         self._draw_text_elements(img, elements, config)
+
+        # Draw nuke flash overlay
+        flash_alpha = 0.0
+        duration_ms = config.get('nuke_flash_duration_ms', 250)
+        for start_ms in hud_gen.nuke_flashes:
+            if start_ms <= time_ms < start_ms + duration_ms:
+                elapsed_ms = time_ms - start_ms
+                alpha = 1.0 - (elapsed_ms / duration_ms)
+                if alpha > flash_alpha:
+                    flash_alpha = alpha
+
+        if flash_alpha > 0.0:
+            overlay = Image.new(
+                'RGBA',
+                img.size,
+                (255, 255, 255, int(255 * flash_alpha)),
+            )
+            try:
+                img.alpha_composite(overlay)
+            finally:
+                overlay.close()
+
         return img
 
     def _calculate_team_y_positions(

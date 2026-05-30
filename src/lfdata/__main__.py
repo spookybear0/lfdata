@@ -259,7 +259,7 @@ def main() -> None:
 
         hud_gen = VisualElementGenerator(game, args.video_player, config)
         elements = hud_gen.generate_at(args.image_at)
-        img = generator._render_frame(elements, args.image_at, config)
+        img = generator._render_frame(elements, args.image_at, config, hud_gen)
 
         out_dir = Path(args.image_outdir)
         out_dir.mkdir(parents=True, exist_ok=True)

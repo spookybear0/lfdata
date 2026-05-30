@@ -1005,3 +1005,39 @@ def test_text_cache_eviction() -> None:
     assert len(vg._text_cache) == 1000
     assert oldest_key not in vg._text_cache
     oldest_mock.close.assert_called_once()
+
+
+def test_nuke_flash_rendering() -> None:
+    """Verifies that nuke detonations trigger a white flash overlay."""
+    from unittest.mock import MagicMock
+    from lfdata.model import LFGame
+    from lfdata.video.renderer import VideoGenerator
+
+    game = LFGame(game_id='test_flash_game', game_type='SM5')
+    vg = VideoGenerator(game)
+
+    hud_gen = MagicMock()
+    hud_gen.nuke_flashes = [1000]
+
+    # Test before flash
+    res_before = vg._render_frame([], 500, {'resolution': [100, 100]}, hud_gen)
+    # Background remains unchanged (transparent)
+    assert res_before.getpixel((50, 50)) == (0, 0, 0, 0)
+    res_before.close()
+
+    # Test at exact flash start
+    res_start = vg._render_frame([], 1000, {'resolution': [100, 100]}, hud_gen)
+    # Overlay is fully white (alpha 255)
+    assert res_start.getpixel((50, 50)) == (255, 255, 255, 255)
+    res_start.close()
+
+    # Test in the middle of the flash (125 ms elapsed, alpha should be 127)
+    res_mid = vg._render_frame([], 1125, {'resolution': [100, 100]}, hud_gen)
+    color = res_mid.getpixel((50, 50))
+    assert color == (255, 255, 255, 127)
+    res_mid.close()
+
+    # Test after flash duration (250 ms elapsed)
+    res_after = vg._render_frame([], 1250, {'resolution': [100, 100]}, hud_gen)
+    assert res_after.getpixel((50, 50)) == (0, 0, 0, 0)
+    res_after.close()

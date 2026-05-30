@@ -60,6 +60,7 @@ class VisualElementGenerator:
 
         self._precompute_replay()
         self.camera_shakes: list[dict[str, Any]] = []
+        self.nuke_flashes: list[int] = []
         self._detect_camera_shakes()
 
     def _find_player_entity_id(self) -> str | None:
@@ -1271,3 +1272,4 @@ class VisualElementGenerator:
                             'strength': 0.03,
                         }
                     )
+                    self.nuke_flashes.append(event.time)
