@@ -68,6 +68,8 @@ any code changes. Be sure to maintain this order:
   code outside the definition in the enum or class implementation.
 * All Markdown must be properly formatted. Lines may not exceed 80 characters
   unless they cannot be broken down.
+* Initializing dataclasses must be done with named parameters unless there is no
+  ambiguity, like a single argument whose purpose is clear from the name.
 
 ## Code structure
 
