@@ -91,7 +91,7 @@ class LFRole(enum.Enum):
         role_id=4,
         display_name='Ammo',
         start_lives=10,
-        start_shots=0,
+        start_shots=15,
         start_missiles=0,
         max_lives=20,
         max_shots=0,
