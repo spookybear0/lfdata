@@ -94,6 +94,14 @@ def main() -> None:
             'that were rendered.'
         ),
     )
+    parser.add_argument(
+        '--no_pipe',
+        action='store_true',
+        help=(
+            'Disable piping raw frame bytes directly to FFmpeg and '
+            'write temporary PNG files to disk instead.'
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -299,6 +307,7 @@ def main() -> None:
                 video_end_ms=args.video_end_ms,
                 video_player=args.video_player,
                 fps=args.fps,
+                use_pipe=not args.no_pipe,
             )
         else:
             generator._generate_frames(

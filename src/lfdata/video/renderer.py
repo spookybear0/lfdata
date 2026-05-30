@@ -71,6 +71,32 @@ def _render_frame_worker(
     )
 
 
+def _render_frame_bytes_worker(
+    time_ms: int,
+    config: dict[str, Any],
+) -> bytes:
+    """Renders a single frame and returns its raw RGBA bytes.
+
+    Args:
+        time_ms: The millisecond timestamp.
+        config: The video styling options.
+
+    Returns:
+        bytes: The raw RGBA bytes of the rendered image.
+
+    Raises:
+        RuntimeError: If the worker process is not properly initialized.
+    """
+    global _local_vg, _local_hud_gen
+    if _local_vg is None or _local_hud_gen is None:
+        raise RuntimeError('Worker process not properly initialized.')
+    return _local_vg._render_frame_bytes(
+        time_ms=time_ms,
+        config=config,
+        hud_gen=_local_hud_gen,
+    )
+
+
 class VideoGenerator:
     """Generates visual videos from LF game events and data."""
 
@@ -150,6 +176,7 @@ class VideoGenerator:
         video_end_ms: int | None = None,
         video_player: str | None = None,
         fps: int | None = None,
+        use_pipe: bool = True,
     ) -> Path:
         """Generates a video file for the game replay.
 
@@ -163,6 +190,7 @@ class VideoGenerator:
             video_end_ms: The ending millisecond timestamp for the video.
             video_player: Optional player name to focus on.
             fps: Optional frame rate override for the video.
+            use_pipe: Whether to stream frame bytes via pipe directly to FFmpeg.
 
         Returns:
             Path: The path to the generated video file.
@@ -172,6 +200,9 @@ class VideoGenerator:
         if video_player is not None:
             config['player_name'] = video_player
 
+        config_use_pipe = config.get('use_pipe', True)
+        final_use_pipe = use_pipe and config_use_pipe
+
         hud_gen = VisualElementGenerator(
             self.game, config.get('player_name'), config
         )
@@ -180,18 +211,27 @@ class VideoGenerator:
         start_ms = video_start_ms
         fps_val = fps if fps is not None else config.get('fps', 60)
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            self._generate_frames(
-                temp_path=temp_path,
+        if final_use_pipe:
+            self._generate_video_piped(
+                output_path=output_path,
                 start_ms=start_ms,
                 end_ms=end_ms,
                 fps=fps_val,
                 config=config,
                 hud_gen=hud_gen,
             )
-            self._compile_video(temp_path, fps_val, output_path)
-
+        else:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+                self._generate_frames(
+                    temp_path=temp_path,
+                    start_ms=start_ms,
+                    end_ms=end_ms,
+                    fps=fps_val,
+                    config=config,
+                    hud_gen=hud_gen,
+                )
+                self._compile_video(temp_path, fps_val, output_path)
         return output_path
 
     def _load_config(self, config_path: str | Path | None) -> dict[str, Any]:
@@ -240,6 +280,26 @@ class VideoGenerator:
         hours = minutes // 60
         minutes = minutes % 60
         return f'{hours}h {minutes}m {sec}s'
+
+    def _render_frame_bytes(
+        self,
+        time_ms: int,
+        config: dict[str, Any],
+        hud_gen: VisualElementGenerator,
+    ) -> bytes:
+        """Renders a single frame and returns its raw RGBA bytes.
+
+        Args:
+            time_ms: The millisecond timestamp.
+            config: The merged video styling options.
+            hud_gen: Precomputed visual element HUD generator.
+
+        Returns:
+            bytes: The raw RGBA bytes of the rendered image.
+        """
+        elements = hud_gen.generate_at(time_ms)
+        img = self._render_frame(elements, time_ms, config)
+        return img.tobytes()
 
     def _render_and_save_frame(
         self,
@@ -369,6 +429,201 @@ class VideoGenerator:
 
             for f in futures:
                 f.result()
+
+    def _generate_video_piped(
+        self,
+        output_path: Path,
+        start_ms: int,
+        end_ms: int,
+        fps: int,
+        config: dict[str, Any],
+        hud_gen: VisualElementGenerator,
+    ) -> None:
+        """Generates raw video frames in parallel and pipes them to FFmpeg.
+
+        Args:
+            output_path: The target path of the output video.
+            start_ms: The start timestamp of the video in milliseconds.
+            end_ms: The end timestamp of the video in milliseconds.
+            fps: The number of frames per second.
+            config: The merged video styling and configuration options.
+            hud_gen: Precomputed visual element HUD generator.
+
+        Raises:
+            RuntimeError: If FFmpeg encoding fails or terminates prematurely.
+        """
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.touch()
+
+        resolution = config.get('resolution', [1920, 1080])
+        ext = output_path.suffix.lower()
+        codec: str
+        pix_fmt: str
+        extra_args: list[str]
+        if ext == '.webm':
+            codec = 'libvpx-vp9'
+            pix_fmt = 'yuva420p'
+            extra_args = []
+        elif ext == '.mov':
+            codec = 'prores_ks'
+            pix_fmt = 'yuva444p10le'
+            extra_args = ['-profile:v', '4']
+        else:
+            codec = 'libx264'
+            pix_fmt = 'yuv420p'
+            extra_args = []
+
+        cmd = [
+            'ffmpeg',
+            '-y',
+            '-f',
+            'rawvideo',
+            '-pix_fmt',
+            'rgba',
+            '-s',
+            f'{resolution[0]}x{resolution[1]}',
+            '-framerate',
+            str(fps),
+            '-i',
+            '-',
+            '-c:v',
+            codec,
+        ]
+        if extra_args:
+            cmd.extend(extra_args)
+        cmd.extend(
+            [
+                '-pix_fmt',
+                pix_fmt,
+                str(output_path),
+            ]
+        )
+
+        print(f'Encoding video to {output_path} (direct pipe)...')
+
+        frame_step = 1000.0 / fps
+        tasks = []
+        frame_index = 0
+        time_ms = float(start_ms)
+
+        while time_ms <= end_ms:
+            tasks.append((frame_index, int(time_ms)))
+            frame_index += 1
+            time_ms += frame_step
+            if frame_step <= 0:
+                break
+
+        from concurrent.futures import (
+            ProcessPoolExecutor,
+            wait,
+        )
+
+        max_workers = min(16, max(1, os.cpu_count() or 4))
+
+        try:
+            ffmpeg_proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+        except FileNotFoundError as e:
+            raise RuntimeError(
+                f'ffmpeg command not found: {e}. '
+                'Please ensure FFmpeg is installed.'
+            )
+
+        with ProcessPoolExecutor(
+            max_workers=max_workers,
+            initializer=_init_renderer_process,
+            initargs=(self, hud_gen),
+        ) as executor:
+            futures = [
+                executor.submit(
+                    _render_frame_bytes_worker,
+                    t[1],
+                    config,
+                )
+                for t in tasks
+            ]
+            total_frames = len(tasks)
+            start_time = time.time()
+            last_report_time = start_time
+
+            write_idx = 0
+
+            try:
+                while write_idx < total_frames:
+                    if ffmpeg_proc.poll() is not None:
+                        _, stderr_data = ffmpeg_proc.communicate()
+                        err_msg = stderr_data.decode('utf-8', errors='replace')
+                        raise RuntimeError(
+                            'FFmpeg encoding terminated prematurely:\n'
+                            f'{err_msg}'
+                        )
+
+                    curr_future = futures[write_idx]
+                    if not curr_future.done():
+                        wait([curr_future], timeout=0.1)
+                        current_time = time.time()
+                        if current_time - last_report_time >= 10.0:
+                            completed = sum(1 for f in futures if f.done())
+                            pct = (
+                                (completed / total_frames) * 100.0
+                                if total_frames > 0
+                                else 0.0
+                            )
+                            elapsed = current_time - start_time
+                            elapsed_str = self._format_duration(elapsed)
+
+                            if completed >= 5 and elapsed > 1.0:
+                                rate = completed / elapsed
+                                rem_frames = total_frames - completed
+                                remaining = rem_frames / rate
+                                remaining_str = self._format_duration(remaining)
+                                msg = (
+                                    f'Rendered {completed}/{total_frames} '
+                                    f'frames ({pct:.1f}%) - '
+                                    f'{elapsed_str} elapsed, '
+                                    f'{remaining_str} remaining.'
+                                )
+                            else:
+                                msg = (
+                                    f'Rendered {completed}/{total_frames} '
+                                    f'frames ({pct:.1f}%) - '
+                                    f'{elapsed_str} elapsed.'
+                                )
+                            print(msg)
+                            last_report_time = current_time
+                        continue
+
+                    frame_bytes = curr_future.result()
+                    ffmpeg_proc.stdin.write(frame_bytes)
+                    write_idx += 1
+
+            except Exception as e:
+                ffmpeg_proc.kill()
+                raise e
+
+            completed = total_frames
+            elapsed = time.time() - start_time
+            elapsed_str = self._format_duration(elapsed)
+            print(
+                f'Rendered {completed}/{total_frames} '
+                f'frames (100.0%) - '
+                f'{elapsed_str} elapsed.'
+            )
+
+        if ffmpeg_proc.stdin:
+            ffmpeg_proc.stdin.close()
+        _, stderr_data = ffmpeg_proc.communicate()
+
+        if ffmpeg_proc.returncode != 0:
+            err_msg = stderr_data.decode('utf-8', errors='replace')
+            raise RuntimeError(
+                f'FFmpeg encoding failed with exit code '
+                f'{ffmpeg_proc.returncode}:\n{err_msg}'
+            )
 
     def _compile_video(
         self, frames_dir: Path, fps: int, output_path: Path

@@ -876,3 +876,39 @@ def test_video_generator_pickling_and_multiprocessing() -> None:
     assert hasattr(loaded, '_text_cache_lock')
     assert loaded._text_cache_lock is not None
     assert len(loaded._text_cache) == 0
+
+
+def test_video_generator_generate_piped(tmp_path) -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame
+
+    game = LFGame(
+        game_id='video_test_game_piped',
+        timestamp=datetime.now(),
+        game_type='Test Game',
+    )
+
+    generator = VideoGenerator(game)
+    output_file = tmp_path / 'output_piped.mp4'
+
+    generated_path = generator.generate(output_file, use_pipe=True)
+    assert generated_path.exists()
+    assert generated_path == output_file
+
+
+def test_video_generator_generate_no_pipe(tmp_path) -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame
+
+    game = LFGame(
+        game_id='video_test_game_no_pipe',
+        timestamp=datetime.now(),
+        game_type='Test Game',
+    )
+
+    generator = VideoGenerator(game)
+    output_file = tmp_path / 'output_no_pipe.mp4'
+
+    generated_path = generator.generate(output_file, use_pipe=False)
+    assert generated_path.exists()
+    assert generated_path == output_file

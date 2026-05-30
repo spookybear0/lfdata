@@ -132,6 +132,7 @@ def test_main_video_out() -> None:
                 video_end_ms=2000,
                 video_player='Cyborg',
                 fps=None,
+                use_pipe=True,
             )
 
 
@@ -165,4 +166,38 @@ def test_main_video_out_fps() -> None:
                 video_end_ms=2000,
                 video_player='Cyborg',
                 fps=30,
+                use_pipe=True,
+            )
+
+
+def test_main_video_out_no_pipe() -> None:
+    real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+    with patch('lfdata.video.VideoGenerator.generate') as mock_generate:
+        with patch.object(
+            sys,
+            'argv',
+            [
+                'lfdata',
+                '--input_tdf',
+                str(real_path),
+                '--video_player',
+                'Cyborg',
+                '--video_start_ms',
+                '1000',
+                '--video_end_ms',
+                '2000',
+                '--video_out',
+                'output.mp4',
+                '--no_pipe',
+            ],
+        ):
+            main()
+            mock_generate.assert_called_once_with(
+                output_path='output.mp4',
+                config_path=None,
+                video_start_ms=1000,
+                video_end_ms=2000,
+                video_player='Cyborg',
+                fps=None,
+                use_pipe=False,
             )
