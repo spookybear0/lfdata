@@ -322,6 +322,7 @@ class VideoGenerator:
         video_player: str | None = None,
         fps: int | None = None,
         use_pipe: bool = True,
+        alpha_output_path: str | Path | None = None,
     ) -> Path:
         """Generates a video file for the game replay.
 
@@ -336,9 +337,13 @@ class VideoGenerator:
             video_player: Optional player name to focus on.
             fps: Optional frame rate override for the video.
             use_pipe: Whether to stream frame bytes via pipe directly to FFmpeg.
+            alpha_output_path: Optional path for the alpha channel video.
 
         Returns:
             Path: The path to the generated video file.
+
+        Raises:
+            ValueError: If alpha_output_path is set but use_pipe is False.
         """
         output_path = Path(output_path)
         config = self._load_config(config_path)
@@ -347,6 +352,14 @@ class VideoGenerator:
 
         config_use_pipe = config.get('use_pipe', True)
         final_use_pipe = use_pipe and config_use_pipe
+
+        if alpha_output_path is not None:
+            if not final_use_pipe:
+                raise ValueError(
+                    'Alpha video output is only supported when use_pipe is '
+                    'True.'
+                )
+            alpha_output_path = Path(alpha_output_path)
 
         hud_gen = VisualElementGenerator(
             self.game, config.get('player_name'), config
@@ -364,6 +377,7 @@ class VideoGenerator:
                 fps=fps_val,
                 config=config,
                 hud_gen=hud_gen,
+                alpha_output_path=alpha_output_path,
             )
         else:
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -589,6 +603,7 @@ class VideoGenerator:
         fps: int,
         config: dict[str, Any],
         hud_gen: VisualElementGenerator,
+        alpha_output_path: Path | None = None,
     ) -> None:
         """Generates raw video frames in parallel and pipes them to FFmpeg.
 
@@ -599,6 +614,7 @@ class VideoGenerator:
             fps: The number of frames per second.
             config: The merged video styling and configuration options.
             hud_gen: Precomputed visual element HUD generator.
+            alpha_output_path: Optional path for the alpha channel video.
 
         Raises:
             RuntimeError: If FFmpeg encoding fails or terminates prematurely.
@@ -692,6 +708,34 @@ class VideoGenerator:
                 'Please ensure FFmpeg is installed.'
             )
 
+        ffmpeg_proc_alpha = None
+        if alpha_output_path:
+            alpha_output_path.parent.mkdir(parents=True, exist_ok=True)
+            alpha_output_path.touch()
+            print(
+                f'Encoding alpha video to {alpha_output_path} (direct pipe)...'
+            )
+            print(
+                f'Using alpha video encoder: {codec} '
+                f'({_get_encoder_details(codec)})'
+            )
+            cmd_alpha = cmd.copy()
+            cmd_alpha[-1] = str(alpha_output_path)
+            try:
+                ffmpeg_proc_alpha = subprocess.Popen(
+                    cmd_alpha,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                )
+            except FileNotFoundError as e:
+                ffmpeg_proc.kill()
+                ffmpeg_proc.wait()
+                raise RuntimeError(
+                    f'ffmpeg command not found: {e}. '
+                    'Please ensure FFmpeg is installed.'
+                )
+
         try:
             print(f'Starting process pool with {max_workers} workers...')
             with ProcessPoolExecutor(
@@ -724,6 +768,18 @@ class VideoGenerator:
                         raise RuntimeError(
                             'FFmpeg encoding terminated prematurely:\n'
                             f'{err_msg}'
+                        )
+                    if (
+                        ffmpeg_proc_alpha
+                        and ffmpeg_proc_alpha.poll() is not None
+                    ):
+                        _, stderr_alpha = ffmpeg_proc_alpha.communicate()
+                        err_msg_alpha = stderr_alpha.decode(
+                            'utf-8', errors='replace'
+                        )
+                        raise RuntimeError(
+                            'FFmpeg alpha encoding terminated '
+                            f'prematurely:\n{err_msg_alpha}'
                         )
 
                     curr_future = active_futures.get(write_idx)
@@ -771,7 +827,21 @@ class VideoGenerator:
                         continue
 
                     frame_bytes = curr_future.result()
-                    ffmpeg_proc.stdin.write(frame_bytes)
+
+                    if ffmpeg_proc_alpha:
+                        img = Image.frombytes('RGBA', resolution, frame_bytes)
+                        r, g, b, a = img.split()
+                        img_main = img.convert('RGB').convert('RGBA')
+                        img_alpha = Image.merge('RGB', (a, a, a)).convert(
+                            'RGBA'
+                        )
+                        ffmpeg_proc.stdin.write(img_main.tobytes())
+                        ffmpeg_proc_alpha.stdin.write(img_alpha.tobytes())
+                        img.close()
+                        img_main.close()
+                        img_alpha.close()
+                    else:
+                        ffmpeg_proc.stdin.write(frame_bytes)
 
                     # Free the future reference and raw bytes immediately
                     del active_futures[write_idx]
@@ -808,9 +878,26 @@ class VideoGenerator:
                     f'{ffmpeg_proc.returncode}:\n{err_msg}'
                 )
 
+            if ffmpeg_proc_alpha:
+                if ffmpeg_proc_alpha.stdin:
+                    ffmpeg_proc_alpha.stdin.close()
+                    ffmpeg_proc_alpha.stdin = None
+                _, stderr_alpha = ffmpeg_proc_alpha.communicate()
+                if ffmpeg_proc_alpha.returncode != 0:
+                    err_msg_alpha = stderr_alpha.decode(
+                        'utf-8', errors='replace'
+                    )
+                    raise RuntimeError(
+                        f'FFmpeg alpha encoding failed with exit code '
+                        f'{ffmpeg_proc_alpha.returncode}:\n{err_msg_alpha}'
+                    )
+
         except BaseException as e:
             ffmpeg_proc.kill()
             ffmpeg_proc.wait()
+            if ffmpeg_proc_alpha:
+                ffmpeg_proc_alpha.kill()
+                ffmpeg_proc_alpha.wait()
             raise e
 
     def _compile_video(

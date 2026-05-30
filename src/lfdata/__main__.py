@@ -95,6 +95,15 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        '--alpha_video_out',
+        type=str,
+        help=(
+            'Filename of the alpha-only video to generate. '
+            'If set, the main video will contain only RGB channels '
+            'and the alpha video will contain only the alpha channel.'
+        ),
+    )
+    parser.add_argument(
         '--no_pipe',
         action='store_true',
         help=(
@@ -108,6 +117,9 @@ def main() -> None:
     if not args.input_tdf:
         parser.print_help()
         sys.exit(1)
+
+    if args.alpha_video_out and not args.video_out:
+        parser.error('--alpha_video_out requires --video_out to be specified.')
 
     importer = TdfImporter(args.input_tdf)
     game = importer.parse()
@@ -308,6 +320,7 @@ def main() -> None:
                 video_player=args.video_player,
                 fps=args.fps,
                 use_pipe=not args.no_pipe,
+                alpha_output_path=args.alpha_video_out,
             )
         else:
             generator._generate_frames(

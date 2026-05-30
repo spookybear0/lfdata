@@ -133,6 +133,7 @@ def test_main_video_out() -> None:
                 video_player='Cyborg',
                 fps=None,
                 use_pipe=True,
+                alpha_output_path=None,
             )
 
 
@@ -167,6 +168,7 @@ def test_main_video_out_fps() -> None:
                 video_player='Cyborg',
                 fps=30,
                 use_pipe=True,
+                alpha_output_path=None,
             )
 
 
@@ -200,4 +202,51 @@ def test_main_video_out_no_pipe() -> None:
                 video_player='Cyborg',
                 fps=None,
                 use_pipe=False,
+                alpha_output_path=None,
+            )
+
+
+def test_main_alpha_video_out_validation() -> None:
+    real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+    with patch.object(
+        sys,
+        'argv',
+        [
+            'lfdata',
+            '--input_tdf',
+            str(real_path),
+            '--alpha_video_out',
+            'alpha.mp4',
+        ],
+    ):
+        with pytest.raises(SystemExit):
+            main()
+
+
+def test_main_alpha_video_out_generation() -> None:
+    real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+    with patch('lfdata.video.VideoGenerator.generate') as mock_generate:
+        with patch.object(
+            sys,
+            'argv',
+            [
+                'lfdata',
+                '--input_tdf',
+                str(real_path),
+                '--video_out',
+                'output.mp4',
+                '--alpha_video_out',
+                'alpha.mp4',
+            ],
+        ):
+            main()
+            mock_generate.assert_called_once_with(
+                output_path='output.mp4',
+                config_path=None,
+                video_start_ms=0,
+                video_end_ms=None,
+                video_player=None,
+                fps=None,
+                use_pipe=True,
+                alpha_output_path='alpha.mp4',
             )

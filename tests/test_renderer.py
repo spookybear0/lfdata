@@ -1084,3 +1084,52 @@ def test_get_encoder_details() -> None:
     # Test CPU encoders
     assert _get_encoder_details('libx264') == 'CPU-only'
     assert _get_encoder_details('libvpx-vp9') == 'CPU-only'
+
+
+def test_generate_video_piped_alpha(tmp_path) -> None:
+    """Verifies generating video with separate alpha video file."""
+    from unittest.mock import patch, MagicMock
+    from lfdata.model import LFGame
+    from lfdata.video.renderer import VideoGenerator
+
+    game = LFGame(game_id='test_alpha_video', game_type='SM5', duration=1000)
+    vg = VideoGenerator(game)
+    out_file = tmp_path / 'main.mp4'
+    alpha_file = tmp_path / 'alpha.mp4'
+
+    # Mock subprocess.Popen and communications
+    with patch('subprocess.Popen') as mock_popen:
+        mock_proc_main = MagicMock()
+        mock_proc_main.poll.return_value = None
+        mock_proc_main.communicate.return_value = (b'', b'')
+        mock_proc_main.returncode = 0
+
+        mock_proc_alpha = MagicMock()
+        mock_proc_alpha.poll.return_value = None
+        mock_proc_alpha.communicate.return_value = (b'', b'')
+        mock_proc_alpha.returncode = 0
+
+        # We return main first, then alpha
+        mock_popen.side_effect = [mock_proc_main, mock_proc_alpha]
+
+        mock_stdin_main = mock_proc_main.stdin
+        mock_stdin_alpha = mock_proc_alpha.stdin
+
+        # Mock the best H.264 encoder to avoid actual hardware checks in tests
+        with patch(
+            'lfdata.video.renderer._get_best_h264_encoder',
+            return_value='libx264',
+        ):
+            vg.generate(
+                output_path=out_file,
+                alpha_output_path=alpha_file,
+                video_start_ms=0,
+                video_end_ms=100,  # Just 7 frames at 60fps
+                fps=60,
+                use_pipe=True,
+            )
+
+        assert mock_popen.call_count == 2
+        # Check that both processes had frames written to stdin
+        assert mock_stdin_main.write.call_count > 0
+        assert mock_stdin_alpha.write.call_count > 0
