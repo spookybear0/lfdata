@@ -103,3 +103,17 @@ def test_player_resupply_checks() -> None:
     p.lives = 0
     p.resupply_lives_from_medic()
     assert p.lives == 0
+
+
+def test_player_special_points_clamping() -> None:
+    p = LFReplayPlayerState(entity_id='#1', role=LFRole.SCOUT, team_index=0)
+    assert p.special_points == 0
+
+    p.special_points = 50
+    assert p.special_points == 50
+
+    p.special_points = 100
+    assert p.special_points == 99
+
+    p.special_points = -10
+    assert p.special_points == 0

@@ -608,18 +608,20 @@ class VideoGenerator:
             initializer=_init_renderer_process,
             initargs=(self, hud_gen),
         ) as executor:
-            futures = [
-                executor.submit(
+            total_frames = len(tasks)
+            active_futures: dict[int, Any] = {}
+
+            # Submit first batch of tasks up to window size
+            window_size = max_workers * 2
+            for idx in range(min(total_frames, window_size)):
+                active_futures[idx] = executor.submit(
                     _render_frame_bytes_worker,
-                    t[1],
+                    tasks[idx][1],
                     config,
                 )
-                for t in tasks
-            ]
-            total_frames = len(tasks)
+
             start_time = time.time()
             last_report_time = start_time
-
             write_idx = 0
 
             try:
@@ -632,12 +634,20 @@ class VideoGenerator:
                             f'{err_msg}'
                         )
 
-                    curr_future = futures[write_idx]
+                    curr_future = active_futures.get(write_idx)
+                    if curr_future is None:
+                        curr_future = executor.submit(
+                            _render_frame_bytes_worker,
+                            tasks[write_idx][1],
+                            config,
+                        )
+                        active_futures[write_idx] = curr_future
+
                     if not curr_future.done():
                         wait([curr_future], timeout=0.1)
                         current_time = time.time()
                         if current_time - last_report_time >= 10.0:
-                            completed = sum(1 for f in futures if f.done())
+                            completed = write_idx
                             pct = (
                                 (completed / total_frames) * 100.0
                                 if total_frames > 0
@@ -669,6 +679,19 @@ class VideoGenerator:
 
                     frame_bytes = curr_future.result()
                     ffmpeg_proc.stdin.write(frame_bytes)
+
+                    # Free the future reference and raw bytes immediately
+                    del active_futures[write_idx]
+
+                    # Submit the next task
+                    next_idx = write_idx + window_size
+                    if next_idx < total_frames:
+                        active_futures[next_idx] = executor.submit(
+                            _render_frame_bytes_worker,
+                            tasks[next_idx][1],
+                            config,
+                        )
+
                     write_idx += 1
 
             except Exception as e:

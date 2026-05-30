@@ -23,7 +23,7 @@ class LFReplayPlayerState:
         self.shots = role.start_shots
         self.missiles = role.start_missiles
         self.score = 0
-        self.special_points = 0
+        self._special_points = 0
         self.max_hp = role.max_hp
         self.hp = role.max_hp
         self.downtime_ends_at_ms = 0
@@ -79,6 +79,29 @@ class LFReplayPlayerState:
         self.shots = min(
             self.role.max_shots, self.shots + self.role.ammo_shots_gain
         )
+
+    @property
+    def special_points(self) -> int:
+        """Returns the player's special points.
+
+        Gets the number of special points the player currently has.
+
+        Returns:
+            int: The current special points, up to 99.
+        """
+        return self._special_points
+
+    @special_points.setter
+    def special_points(self, value: int) -> None:
+        """Sets the player's special points, clamped between 0 and 99.
+
+        Sets the number of special points, ensuring it never goes below 0 or
+        exceeds 99.
+
+        Args:
+            value: The new special points value.
+        """
+        self._special_points = max(0, min(99, value))
 
 
 class LFReplayTeamState:
