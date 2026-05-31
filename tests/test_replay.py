@@ -1344,3 +1344,176 @@ def test_zap_and_missile_downed_player_authoritative() -> None:
     assert cmd_state.resettable_starts_at_ms == 13000
 
 
+def test_team_boost_within_grace_period() -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
+
+    # Create game
+    game = LFGame(
+        game_id='test_grace_game',
+        timestamp=datetime.now(),
+        game_type='SM5',
+    )
+
+    # Add teams
+    t1 = GameTeam(
+        game_id='test_grace_game',
+        team_index=0,
+        desc='Fire Team',
+        color_enum=11,
+        color_desc='Fire',
+        color_rgb='#FF5000',
+    )
+    t2 = GameTeam(
+        game_id='test_grace_game',
+        team_index=1,
+        desc='Earth Team',
+        color_enum=13,
+        color_desc='Earth',
+        color_rgb='#00FF00',
+    )
+    game.teams = [t1, t2]
+
+    # Add entities
+    med = GameEntity(
+        game_id='test_grace_game',
+        entity_id='M1',
+        type='player',
+        desc='Med1',
+        team_index=0,
+        level=1,
+        category=5,
+        battlesuit='Medic',
+    )
+    sct = GameEntity(
+        game_id='test_grace_game',
+        entity_id='S1',
+        type='player',
+        desc='Sct1',
+        team_index=0,
+        level=1,
+        category=3,
+        battlesuit='Interceptor',
+    )
+    sct2 = GameEntity(
+        game_id='test_grace_game',
+        entity_id='S2',
+        type='player',
+        desc='Sct2',
+        team_index=0,
+        level=1,
+        category=3,
+        battlesuit='Interceptor',
+    )
+    enemy = GameEntity(
+        game_id='test_grace_game',
+        entity_id='E2',
+        type='player',
+        desc='Enemy2',
+        team_index=1,
+        level=1,
+        category=3,
+        battlesuit='Interceptor',
+    )
+    game.entities = [med, sct, sct2, enemy]
+
+    events = [
+        GameEvent(
+            game_id='test_grace_game',
+            time=0,
+            event_type='0100',
+            action='start',
+            raw_message='',
+        ),
+        # Enemy zaps Sct1 at time 1000 ms.
+        # Sct1 HP: 1 -> 0, DOWNED.
+        # Downtime ends at 1000 + 8000 = 9000 ms.
+        # Sct1 just_went_down_at_ms is set to 1000 ms.
+        GameEvent(
+            game_id='test_grace_game',
+            time=1000,
+            event_type='0206',
+            actor_entity_id='E2',
+            target_entity_id='S1',
+            action='zaps',
+            raw_message='',
+        ),
+        # Medic boosts team (life boost) at time 1500 ms.
+        # Sct1 is down, but within 750ms grace period. Sct1 should be boosted!
+        GameEvent(
+            game_id='test_grace_game',
+            time=1500,
+            event_type='0512',
+            actor_entity_id='M1',
+            action='life_boost',
+            raw_message='',
+        ),
+        # Enemy zaps Sct2 at time 3000 ms.
+        # Sct2 HP: 1 -> 0, DOWNED.
+        # Downtime ends at 3000 + 8000 = 11000 ms.
+        GameEvent(
+            game_id='test_grace_game',
+            time=3000,
+            event_type='0206',
+            actor_entity_id='E2',
+            target_entity_id='S2',
+            action='zaps',
+            raw_message='',
+        ),
+        # Medic boosts team (life boost) at time 4000 ms (1000ms > 750ms).
+        # Sct2 is down and past grace period. Sct2 should NOT be boosted.
+        GameEvent(
+            game_id='test_grace_game',
+            time=4000,
+            event_type='0512',
+            actor_entity_id='M1',
+            action='life_boost',
+            raw_message='',
+        ),
+        # Enemy zaps Sct1 at time 5000 ms (Sct1 is already down).
+        # Sct1 downtime is reset to 5000 + 8000 = 13000 ms.
+        # Since Sct1 was already down, just_went_down_at_ms should NOT update.
+        GameEvent(
+            game_id='test_grace_game',
+            time=5000,
+            event_type='0206',
+            actor_entity_id='E2',
+            target_entity_id='S1',
+            action='zaps',
+            raw_message='',
+        ),
+        # Medic boosts team (life boost) at time 5500 ms.
+        # Elapsed since just_went_down_at_ms (1000ms) is 4500ms > 750ms.
+        # Sct1 should NOT be boosted.
+        GameEvent(
+            game_id='test_grace_game',
+            time=5500,
+            event_type='0512',
+            actor_entity_id='M1',
+            action='life_boost',
+            raw_message='',
+        ),
+    ]
+    game.events = events
+
+    replay = LFReplaySystem(game)
+    replay.run()
+
+    players = replay.game_state.players
+    s1_state = players['S1']
+    s2_state = players['S2']
+
+    # S1 start lives: 15.
+    # 1. Downed at 1000 ms (-1 life -> 14 lives).
+    # 2. Boosted at 1500 ms (+5 lives -> 19 lives).
+    # 3. Downed again at 5000 ms (downtime reset, -1 life -> 18 lives).
+    # 4. Boosted at 5500 ms (fails because already down, lives stay 18).
+    assert s1_state.lives == 18
+
+    # S2 start lives: 15.
+    # 1. Boosted at 1500 ms (active, +5 lives -> 20 lives).
+    # 2. Downed at 3000 ms (-1 life -> 19 lives).
+    # 3. Boosted at 4000 ms (fails because elapsed > 750ms, lives stay 19).
+    assert s2_state.lives == 19
+
+

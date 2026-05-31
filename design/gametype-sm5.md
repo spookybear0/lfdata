@@ -82,6 +82,14 @@ They will only resupply players where all these conditions are met:
 * Players who still have lives left
 * Not themselves
 
+## Grace period
+
+After a player goes down, they can still get resupplied or boosted for 750ms. So
+if a player is zapped and down and then a medic performs a life boost, the player
+will still receive the lives. This only applies if the player just went down. It
+does not apply if the player was already down then downed again before coming back
+up.
+
 ## Score
 
 Players can get or lose score points and special points through the following

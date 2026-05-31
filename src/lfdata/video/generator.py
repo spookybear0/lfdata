@@ -130,6 +130,7 @@ class VisualElementGenerator:
         new_p.hp = p.hp
         new_p.downtime_ends_at_ms = p.downtime_ends_at_ms
         new_p.resettable_starts_at_ms = p.resettable_starts_at_ms
+        new_p.just_went_down_at_ms = p.just_went_down_at_ms
         new_p.captured_bases = set(p.captured_bases)
         new_p.has_rapid_fire = p.has_rapid_fire
         new_p.nukes_activated = p.nukes_activated
@@ -503,7 +504,10 @@ class VisualElementGenerator:
                     and prev_self
                     and a_state.team_index == self_state.team_index
                 ):
-                    if not prev_self.is_down(event.time) and prev_self.lives > 0:
+                    if (
+                        prev_self.can_receive_resupply(event.time)
+                        and prev_self.lives > 0
+                    ):
                         if et == '0510':
                             msg = f'Shot-boosted by {actor_name}'
                         else:

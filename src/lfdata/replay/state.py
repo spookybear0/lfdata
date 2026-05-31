@@ -28,6 +28,7 @@ class LFReplayPlayerState:
         self.hp = role.max_hp
         self.downtime_ends_at_ms = 0
         self.resettable_starts_at_ms = 0
+        self.just_went_down_at_ms: int | None = None
         self.captured_bases: set[str] = set()
         self.has_rapid_fire = False
         self.nukes_activated: int = 0
@@ -52,6 +53,27 @@ class LFReplayPlayerState:
         """
         return current_time_ms < self.downtime_ends_at_ms
 
+    def can_receive_resupply(self, current_time_ms: int) -> bool:
+        """Checks if the player can receive resupply or team boost.
+
+        A player is eligible to receive resupply if they are not down, or if
+        they transitioned to down within the last 750 milliseconds.
+
+        Args:
+            current_time_ms: The current millisecond timestamp.
+
+        Returns:
+            bool: True if eligible, False otherwise.
+        """
+        if self.is_eliminated():
+            return False
+        if not self.is_down(current_time_ms):
+            return True
+        if self.just_went_down_at_ms is not None:
+            elapsed_ms = current_time_ms - self.just_went_down_at_ms
+            return 0 <= elapsed_ms <= 750
+        return False
+
     def update_downtime(self, current_time_ms: int) -> None:
         """Restores player's HP if their downtime has expired.
 
@@ -63,6 +85,7 @@ class LFReplayPlayerState:
             return
         if self.hp == 0 and current_time_ms >= self.downtime_ends_at_ms:
             self.hp = self.max_hp
+            self.just_went_down_at_ms = None
 
     def resupply_lives_from_medic(self) -> None:
         """Adds lives to player based on role-specific medic resupply values."""

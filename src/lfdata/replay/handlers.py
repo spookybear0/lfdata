@@ -52,11 +52,14 @@ class LFReplayHandlersMixin:
 
             # Check if target goes down or resets downtime
             if event.event_type in ['0206', '0208']:
+                was_already_down = target.is_down(event.time)
                 if actor.team_index != target.team_index:
                     target.lives = max(0, target.lives - 1)
                 target.hp = 0
                 target.downtime_ends_at_ms = event.time + 8000
                 target.resettable_starts_at_ms = event.time + 4000
+                if not was_already_down:
+                    target.just_went_down_at_ms = event.time
             else:
                 target.hp = max(1, target.hp - 1)
 
@@ -101,11 +104,14 @@ class LFReplayHandlersMixin:
             target.score -= 100
 
             # Missile immediately downs target or resets downtime
+            was_already_down = target.is_down(event.time)
             if actor.team_index != target.team_index:
                 target.lives = max(0, target.lives - 2)
             target.hp = 0
             target.downtime_ends_at_ms = event.time + 8000
             target.resettable_starts_at_ms = event.time + 4000
+            if not was_already_down:
+                target.just_went_down_at_ms = event.time
 
         return f'{actor_name} missiles {target_name}'
 
@@ -177,10 +183,13 @@ class LFReplayHandlersMixin:
                     player.team_index != actor.team_index
                     and not player.is_eliminated()
                 ):
+                    was_already_down = player.is_down(event.time)
                     player.lives = max(0, player.lives - 3)
                     player.hp = 0
                     player.downtime_ends_at_ms = event.time + 8000
                     player.resettable_starts_at_ms = event.time + 4000
+                    if not was_already_down:
+                        player.just_went_down_at_ms = event.time
 
         return f'{actor_name} detonates nuke'
 
@@ -213,9 +222,12 @@ class LFReplayHandlersMixin:
                 target.resupply_lives_from_medic()
             else:
                 target.resupply_shots_from_ammo()
+            was_already_down = target.is_down(event.time)
             target.hp = 0
             target.downtime_ends_at_ms = event.time + 8000
             target.resettable_starts_at_ms = event.time + 4000
+            if not was_already_down:
+                target.just_went_down_at_ms = event.time
             if target.role == LFRole.SCOUT:
                 target.has_rapid_fire = False
         return f'{actor_name} resupplies {target_name}'
@@ -252,7 +264,7 @@ class LFReplayHandlersMixin:
                     player.team_index == actor.team_index
                     and player.entity_id != actor.entity_id
                     and not player.is_eliminated()
-                    and not player.is_down(event.time)
+                    and player.can_receive_resupply(event.time)
                 ):
                     if is_medic:
                         player.resupply_lives_from_medic()
