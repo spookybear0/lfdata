@@ -359,9 +359,9 @@ def test_font_resolution_and_defaults() -> None:
     assert os.path.normpath(vg._resolve_font_path('Anton')) == os.path.normpath(
         'fonts/GoogleSans-Bold.ttf'
     )
-    assert os.path.normpath(vg._resolve_font_path('D Day Stencil')) == os.path.normpath(
-        'fonts/D Day Stencil.ttf'
-    )
+    assert os.path.normpath(
+        vg._resolve_font_path('D Day Stencil')
+    ) == os.path.normpath('fonts/D Day Stencil.ttf')
     assert os.path.normpath(
         vg._resolve_font_path('advanced_pixel_lcd-7')
     ) == os.path.normpath('fonts/advanced_pixel_lcd-7.ttf')
@@ -772,7 +772,8 @@ def test_event_scroller_fade() -> None:
 
     img = Image.new('RGBA', (400, 400), (0, 0, 0, 0))
     events = [
-        {'time': i * 10, 'desc': f'PlayerOne zaps PlayerTwo {i}'} for i in range(20)
+        {'time': i * 10, 'desc': f'PlayerOne zaps PlayerTwo {i}'}
+        for i in range(20)
     ]
     el = UIElement(
         element_type='event_scroller',
@@ -1246,3 +1247,86 @@ def test_dimmed_color_half_saturation_and_darker() -> None:
 
     assert dimmed_color == expected_dimmed
 
+
+def test_scoreboard_penalties_rendering() -> None:
+    """Verifies that penalty cards are correctly drawn in player rows."""
+    from unittest.mock import MagicMock
+    from PIL import Image
+    from lfdata.model import LFGame
+    from lfdata.video.renderer import VideoGenerator
+
+    game = LFGame(game_id='test_penalties_render', game_type='SM5')
+    vg = VideoGenerator(game)
+
+    # 1. Test column offsets shifted by max_player_w
+    columns, offsets = vg._resolve_scoreboard_columns(
+        x_start=100, table_width=650, max_player_w=300
+    )
+    # Default Player col starts at 20, default width is 160 units
+    # Since max_player_w is 300, excess_w = 300 - 160 = 140 pixels.
+    # Non-player columns should be shifted by 140 pixels.
+    default_offsets = [100 + int(x) for x in [20, 180, 230, 330, 410, 490, 580]]
+    assert offsets[0] == default_offsets[0]
+    for i in range(1, len(offsets)):
+        assert offsets[i] == default_offsets[i] + 140
+
+    # 2. Test rendering penalty cards in _draw_player_rows
+    players = [
+        {
+            'codename': 'Player1',
+            'role_name': 'Medic',
+            'score': 100,
+            'lives': 15,
+            'shots': 30,
+            'missiles': 0,
+            'special_points': 5,
+            'penalties': 2,
+        },
+        {
+            'codename': 'Player2',
+            'role_name': 'Medic',
+            'score': 100,
+            'lives': 15,
+            'shots': 30,
+            'missiles': 0,
+            'special_points': 5,
+            'penalties': 5,  # > 3, should draw 'x5' text
+        },
+    ]
+
+    mock_draw = MagicMock()
+    mock_overlay = MagicMock()
+
+    # Stub _get_cached_penalty_card to return a mock card image
+    mock_card = MagicMock(spec=Image.Image)
+    mock_card.width = 20
+    mock_card.height = 20
+    vg._get_cached_penalty_card = MagicMock(return_value=mock_card)
+
+    vg._draw_player_rows(
+        draw=mock_draw,
+        players=players,
+        columns=columns,
+        offsets=offsets,
+        font=None,
+        text_color=(255, 255, 255, 255),
+        gray_color=(128, 128, 128, 255),
+        dimmed_color=(100, 100, 100, 255),
+        y_row=100,
+        row_h=30,
+        height=600,
+        overlay=mock_overlay,
+        stroke_width=1,
+    )
+
+    # 2 penalties for Player 1 -> 2 paste calls
+    # 5 penalties for Player 2 -> 3 paste calls (max 3 cards)
+    # 2 Medic role icons -> 2 paste calls
+    # Total paste calls on overlay = 7
+    assert mock_overlay.paste.call_count == 7
+
+    # Player 2 has 5 penalties, so it should draw 'x5' text using draw.text
+    x5_calls = [
+        call for call in mock_draw.text.call_args_list if 'x5' in call[0][1]
+    ]
+    assert len(x5_calls) == 1

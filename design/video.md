@@ -171,10 +171,10 @@ Special considerations:
 * **Time**: Use the font `advanced_pixel_lcd-7` by default.
 * **Missiles** and **hit points**: Visual indicators at every point.
 * **Special points**: Visual indicators at the interval depending on the role:
-  * **Commander**: Every 20.
-  * **Scout** and **Ammo**: Every 15.
-  * **Medic**: Every 10.
-  * **Heavy**: None.
+    * **Commander**: Every 20.
+    * **Scout** and **Ammo**: Every 15.
+    * **Medic**: Every 10.
+    * **Heavy**: None.
 * **Date of the game**: The date is extracted from the game TDF file. This
   field takes an optional additional parameter, `format`, that specifies
   how to format the date using a Python date formatting string.
@@ -190,13 +190,23 @@ The header text is white and by default uses the font `D Day Stencil`.
 The scoreboard will show (columns omitted if the game type does not
 have them):
 
-* Player
+* Player (and penalties)
 * Player role
 * Player score
 * Player lives
 * Player shots
 * Player missiles
 * Player special points
+
+The column with the player name shows the name. If the player has any
+penalties, it will show one `assets/penalty.png` per penalty to the
+right of the name, offset so that each card overlaps half of the previous
+card (for example, if the position is 500 and the width is 40, the first
+card is at 500, then 520, then 540). There are more than 3 cards, only
+show 3 cards, and a `x{number of penalties}` next to the cards.
+
+Ensure that the player column is wide enough to show the longest player name, plus
+penalties.
 
 As a last row, there is a sum of each value each column.
 

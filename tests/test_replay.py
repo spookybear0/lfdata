@@ -31,7 +31,9 @@ def test_replay_system_rules() -> None:
     from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
 
     # 1. Create a game
-    game = LFGame(game_id='test_rule_game', timestamp=datetime.now(), game_type='SM5')
+    game = LFGame(
+        game_id='test_rule_game', timestamp=datetime.now(), game_type='SM5'
+    )
 
     # 2. Add two teams
     t1 = GameTeam(
@@ -186,7 +188,9 @@ def test_replay_missile_decrements_and_penalties() -> None:
     from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
 
     # Create game
-    game = LFGame(game_id='test_m_game', timestamp=datetime.now(), game_type='SM5')
+    game = LFGame(
+        game_id='test_m_game', timestamp=datetime.now(), game_type='SM5'
+    )
     game.penalty = -500
 
     # Teams
@@ -298,6 +302,11 @@ def test_replay_missile_decrements_and_penalties() -> None:
     # Total score should be 501.
     assert cmd_state.score == 501
     assert 'B1' in cmd_state.captured_bases
+    assert cmd_state.penalties == 1
+    assert cmd_state.hp == 0
+    assert cmd_state.is_down(5000) is True
+    assert cmd_state.downtime_ends_at_ms == 12000
+    assert cmd_state.resettable_starts_at_ms == 8000
 
 
 def test_medic_and_nuke_life_rules() -> None:
@@ -965,7 +974,8 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time_ms == 43000 and r.description == 'Cmd1 nuke canceled by own resup'
+            if r.time_ms == 43000
+            and r.description == 'Cmd1 nuke canceled by own resup'
         ),
         None,
     )
@@ -988,7 +998,8 @@ def test_nuke_cancel_scenarios() -> None:
         (
             r
             for r in records
-            if r.time_ms == 90000 and r.description == 'Cmd1 nuke activated too late'
+            if r.time_ms == 90000
+            and r.description == 'Cmd1 nuke activated too late'
         ),
         None,
     )
@@ -1515,5 +1526,3 @@ def test_team_boost_within_grace_period() -> None:
     # 2. Downed at 3000 ms (-1 life -> 19 lives).
     # 3. Boosted at 4000 ms (fails because elapsed > 750ms, lives stay 19).
     assert s2_state.lives == 19
-
-

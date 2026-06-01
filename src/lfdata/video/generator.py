@@ -137,6 +137,7 @@ class VisualElementGenerator:
         new_p.nukes_detonated = p.nukes_detonated
         new_p.nuke_cancels = p.nuke_cancels
         new_p.own_nuke_cancels = p.own_nuke_cancels
+        new_p.penalties = p.penalties
         return new_p
 
     def _copy_team_state(self, t: LFReplayTeamState) -> LFReplayTeamState:
@@ -818,6 +819,7 @@ class VisualElementGenerator:
                     'max_hp': p.max_hp,
                     'is_down': p.is_down(time_ms),
                     'is_eliminated': p.is_eliminated(),
+                    'penalties': p.penalties,
                 }
             )
             tot_score += p.score

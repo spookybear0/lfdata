@@ -333,6 +333,13 @@ class LFReplayHandlersMixin:
                 gp = self.game.penalty
                 penalty_val = gp if gp is not None else -1000
                 actor.score += penalty_val
+                actor.penalties += 1
+                was_already_down = actor.is_down(event.time)
+                actor.hp = 0
+                actor.downtime_ends_at_ms = event.time + 8000
+                actor.resettable_starts_at_ms = event.time + 4000
+                if not was_already_down:
+                    actor.just_went_down_at_ms = event.time
             return f'{actor_name} is penalized'
         return None
 

@@ -35,6 +35,7 @@ class LFReplayPlayerState:
         self.nukes_detonated: int = 0
         self.nuke_cancels: int = 0
         self.own_nuke_cancels: int = 0
+        self.penalties: int = 0
 
     def is_eliminated(self) -> bool:
         """Returns True if the player has no lives left and is out of the

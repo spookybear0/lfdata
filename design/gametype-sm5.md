@@ -175,3 +175,9 @@ checked until one of these events is found:
 * **Cancel by enemy nuke**: If there is a `DETONATE_NUKE` nuke by another player, this is a
   "nuke cancel by enemy nuke" event.
 * **Game end**: If the game ended before the detonation, this is a "nuke activated too late" event.
+
+## Penalties
+
+Penalties are shown as game events. If a player is penalized, they're beginning
+a new downtime. They will also incur the penalty specified in the mission data
+type. The game keeps track of how many penalties each player has.

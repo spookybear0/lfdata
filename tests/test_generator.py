@@ -305,6 +305,8 @@ def test_scoreboard_hp_total_filtering() -> None:
     p2_data = next(d for d in team_data['players'] if d['codename'] == 'Sct')
     assert p1_data['hp'] == 3
     assert p2_data['hp'] == 1
+    assert p1_data['penalties'] == 0
+    assert p2_data['penalties'] == 0
 
     # Total HP should only sum Commander (3), not Scout (1), so total is 3
     assert team_data['totals']['hp'] == 3
@@ -1025,7 +1027,7 @@ def test_new_ui_elements_and_custom_fields() -> None:
     assert date_el is not None
     assert date_el.align == 'right'
     assert date_el.x == 0.98
-    assert date_el.y == 0.88
+    assert date_el.y == 0.92
     assert date_el.style.size == 18
 
     # Ensure user defined texts are not in elements by default
