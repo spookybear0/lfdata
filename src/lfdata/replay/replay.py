@@ -42,12 +42,181 @@ class LFReplaySystem(LFReplayHandlersMixin):
         self.entity_names: dict[str, str] = {
             e.entity_id: e.desc for e in game.entities
         }
+        self._resupply_choices: dict[tuple[int, str], bool] = {}
+        self._encountered_points: list[tuple[int, str]] = []
         self._init_states()
         self.game_state = LFReplayGameState(
             self.player_states, self.team_states
         )
         self.records: list[LFReplayEventRecord] = []
         self.game_ended_at_ms: int | None = None
+
+        if self.game.sm5_stats:
+            self._search_choices()
+            self._reset_simulation()
+
+    def _reset_simulation(self) -> None:
+        """Resets the simulation state to initial values, preparing for a rerun."""
+        self.player_states = []
+        self.team_states = []
+        self._init_states()
+        self.game_state = LFReplayGameState(
+            self.player_states, self.team_states
+        )
+        self.records = []
+        self.game_ended_at_ms = None
+        self._encountered_points = []
+
+    def _is_player_boost_ambiguous(
+        self, player: LFReplayPlayerState, event_time: int
+    ) -> bool:
+        """Checks if a player is ambiguous for a team boost event.
+
+        A player is ambiguous if they went down approximately 750ms ago (within
+        a 2000ms buffer) or if their downtime ends/ended near the boost time
+        (within a 2000ms buffer).
+
+        Args:
+            player: The player state to check.
+            event_time: The current event timestamp in milliseconds.
+
+        Returns:
+            bool: True if the player is ambiguous, False otherwise.
+        """
+        if player.just_went_down_at_ms is not None:
+            elapsed_ms = event_time - player.just_went_down_at_ms
+            if abs(elapsed_ms - 750) <= 2000:
+                return True
+
+        if abs(event_time - player.downtime_ends_at_ms) <= 2000:
+            return True
+
+        return False
+
+    def _verify_final_stats(self) -> bool:
+        """Verifies if the final player states match the expected sm5_stats.
+
+        Returns:
+            bool: True if all stats match, False otherwise.
+        """
+        if not self.game.sm5_stats:
+            return True
+
+        matched = True
+        for stats in self.game.sm5_stats:
+            player = self.game_state.players.get(stats.entity_id)
+            if not player:
+                continue
+            if (
+                player.lives != stats.lives_left
+                or player.shots != stats.shots_left
+            ):
+                matched = False
+                # Print debug output to visualize mismatches
+                print(
+                    f'Stats mismatch for player {stats.entity_id}: '
+                    f'lives={player.lives} (expected {stats.lives_left}), '
+                    f'shots={player.shots} (expected {stats.shots_left})'
+                )
+        return matched
+
+    def _run_simulation_with_choices(
+        self,
+    ) -> tuple[bool, list[tuple[int, str]]]:
+        """Runs the simulation with current self._resupply_choices.
+
+        Returns:
+            tuple: A tuple containing:
+                - bool: True if the simulation succeeded (matched final stats).
+                - list: A list of encountered ambiguous points.
+        """
+        self._reset_simulation()
+
+        sorted_events = sorted(self.game.events, key=lambda e: e.time)
+        for event in sorted_events:
+            for player in self.game_state.players.values():
+                player.update_downtime(event.time)
+
+            self._dispatch_event(event)
+            self.game_state.update_team_scores_and_rankings()
+
+            if self._is_game_over():
+                self.game_ended_at_ms = event.time
+                break
+
+        success = self._verify_final_stats()
+        return success, list(self._encountered_points)
+
+    def _search_choices(self) -> bool:
+        """Finds correct choices for ambiguous events using backtracking DFS.
+
+        Returns:
+            bool: True if a matching configuration was found, False otherwise.
+        """
+        print(f'Starting stats alignment for game {self.game.game_id}...')
+        self._resupply_choices = {}
+        self._encountered_points = []
+
+        success, encountered = self._run_simulation_with_choices()
+        if success:
+            print(
+                'Initial simulation matched final stats without backtracking.'
+            )
+            return True
+
+        if not encountered:
+            print(
+                'Stats mismatch detected, but no ambiguous events were '
+                'encountered.'
+            )
+            self._reset_simulation()
+            return False
+
+        print(
+            f'Stats mismatch detected. Initial ambiguous points: {encountered}'
+        )
+
+        def dfs(fixed_choices: dict[tuple[int, str], bool]) -> bool:
+            self._resupply_choices = fixed_choices.copy()
+            succ, enc = self._run_simulation_with_choices()
+            if succ:
+                print(
+                    f'Stats aligned successfully with choices: {fixed_choices}'
+                )
+                return True
+
+            next_point = None
+            for p in enc:
+                if p not in fixed_choices:
+                    next_point = p
+                    break
+
+            if next_point is None:
+                # All encountered points are fixed, but still mismatched.
+                return False
+
+            # Try True branch
+            print(f'Branching: trying True for point {next_point}')
+            fixed_choices[next_point] = True
+            if dfs(fixed_choices):
+                return True
+
+            # Try False branch
+            print(f'Branching: trying False for point {next_point}')
+            fixed_choices[next_point] = False
+            if dfs(fixed_choices):
+                return True
+
+            # Backtrack
+            del fixed_choices[next_point]
+            return False
+
+        result = dfs({})
+        if not result:
+            print('Failed to find a choice set that matches final stats.')
+            self._resupply_choices = {}
+            self._reset_simulation()
+        return result
 
     def _init_states(self) -> None:
         """Initializes player and team states based on game metadata."""

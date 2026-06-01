@@ -1526,3 +1526,363 @@ def test_team_boost_within_grace_period() -> None:
     # 2. Downed at 3000 ms (-1 life -> 19 lives).
     # 3. Boosted at 4000 ms (fails because elapsed > 750ms, lives stay 19).
     assert s2_state.lives == 19
+
+
+def test_replay_stats_alignment() -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
+    from lfdata.model.gametypes.sm5_stats import Sm5Stats
+
+    # Create game
+    game = LFGame(
+        game_id='test_align_game',
+        timestamp=datetime.now(),
+        game_type='SM5',
+    )
+
+    t1 = GameTeam(
+        game_id='test_align_game',
+        team_index=0,
+        desc='Fire Team',
+        color_enum=11,
+        color_desc='Fire',
+        color_rgb='#FF5000',
+    )
+    t2 = GameTeam(
+        game_id='test_align_game',
+        team_index=1,
+        desc='Earth Team',
+        color_enum=13,
+        color_desc='Earth',
+        color_rgb='#00FF00',
+    )
+    game.teams = [t1, t2]
+
+    med = GameEntity(
+        game_id='test_align_game',
+        entity_id='M1',
+        type='player',
+        desc='Med1',
+        team_index=0,
+        level=1,
+        category=5,
+        battlesuit='Medic',
+    )
+    sct = GameEntity(
+        game_id='test_align_game',
+        entity_id='S1',
+        type='player',
+        desc='Sct1',
+        team_index=0,
+        level=1,
+        category=3,
+        battlesuit='Interceptor',
+    )
+    enemy = GameEntity(
+        game_id='test_align_game',
+        entity_id='E2',
+        type='player',
+        desc='Enemy2',
+        team_index=1,
+        level=1,
+        category=3,
+        battlesuit='Interceptor',
+    )
+    game.entities = [med, sct, enemy]
+
+    events = [
+        GameEvent(
+            game_id='test_align_game',
+            time=0,
+            event_type='0100',
+            action='start',
+            raw_message='',
+        ),
+        # E2 zaps S1 at 1000ms. S1 down, lives: 15 -> 14.
+        GameEvent(
+            game_id='test_align_game',
+            time=1000,
+            event_type='0206',
+            actor_entity_id='E2',
+            target_entity_id='S1',
+            action='zaps',
+            raw_message='',
+        ),
+        # Medic boosts team (life boost) at time 1500 ms (500ms elapsed).
+        # S1 is down, and elapsed = 500 ms (abs(500 - 750) = 250 <= 500 ms).
+        # This makes S1 ambiguous!
+        GameEvent(
+            game_id='test_align_game',
+            time=1500,
+            event_type='0512',
+            actor_entity_id='M1',
+            action='life_boost',
+            raw_message='',
+        ),
+    ]
+    game.events = events
+
+    # Add expected stats requiring S1 to receive the boost (lives = 19)
+    s1_stats = Sm5Stats(
+        game_id='test_align_game',
+        entity_id='S1',
+        lives_left=19,
+        shots_left=30,
+    )
+    med_stats = Sm5Stats(
+        game_id='test_align_game',
+        entity_id='M1',
+        lives_left=20,
+        shots_left=15,
+    )
+    e2_stats = Sm5Stats(
+        game_id='test_align_game',
+        entity_id='E2',
+        lives_left=15,
+        shots_left=29,
+    )
+    game.sm5_stats = [s1_stats, med_stats, e2_stats]
+
+    replay = LFReplaySystem(game)
+    replay.run()
+
+    # The simulation should align S1 lives to 19 (meaning choice was True)
+    assert replay.game_state.players['S1'].lives == 19
+
+    # Now let's try the same game but requiring S1 to NOT receive the boost
+    game2 = LFGame(
+        game_id='test_align_game_2',
+        timestamp=datetime.now(),
+        game_type='SM5',
+    )
+    game2.teams = [t1, t2]
+    game2.entities = [med, sct, enemy]
+    game2.events = events
+
+    s1_stats_no_boost = Sm5Stats(
+        game_id='test_align_game_2',
+        entity_id='S1',
+        lives_left=14,  # Lives remain 14 (no boost)
+        shots_left=30,
+    )
+    game2.sm5_stats = [s1_stats_no_boost, med_stats, e2_stats]
+
+    replay2 = LFReplaySystem(game2)
+    replay2.run()
+
+    # The simulation should align S1 lives to 14 (meaning choice was False)
+    assert replay2.game_state.players['S1'].lives == 14
+
+
+def test_replay_recovery_boundary_alignment() -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
+    from lfdata.model.gametypes.sm5_stats import Sm5Stats
+
+    # Create game
+    game = LFGame(
+        game_id='test_recovery_game',
+        timestamp=datetime.now(),
+        game_type='SM5',
+    )
+
+    t1 = GameTeam(
+        game_id='test_recovery_game',
+        team_index=0,
+        desc='Fire Team',
+        color_enum=11,
+        color_desc='Fire',
+        color_rgb='#FF5000',
+    )
+    t2 = GameTeam(
+        game_id='test_recovery_game',
+        team_index=1,
+        desc='Earth Team',
+        color_enum=13,
+        color_desc='Earth',
+        color_rgb='#00FF00',
+    )
+    game.teams = [t1, t2]
+
+    med = GameEntity(
+        game_id='test_recovery_game',
+        entity_id='M1',
+        type='player',
+        desc='Med1',
+        team_index=0,
+        level=1,
+        category=5,
+        battlesuit='Medic',
+    )
+    sct = GameEntity(
+        game_id='test_recovery_game',
+        entity_id='S1',
+        type='player',
+        desc='Sct1',
+        team_index=0,
+        level=1,
+        category=3,
+        battlesuit='Interceptor',
+    )
+    enemy = GameEntity(
+        game_id='test_recovery_game',
+        entity_id='E2',
+        type='player',
+        desc='Enemy2',
+        team_index=1,
+        level=1,
+        category=3,
+        battlesuit='Interceptor',
+    )
+    game.entities = [med, sct, enemy]
+
+    events = [
+        GameEvent(
+            game_id='test_recovery_game',
+            time=0,
+            event_type='0100',
+            action='start',
+            raw_message='',
+        ),
+        # E2 zaps S1 at 1000ms. S1 down, lives: 15 -> 14.
+        # S1 downtime ends at 9000ms.
+        GameEvent(
+            game_id='test_recovery_game',
+            time=1000,
+            event_type='0206',
+            actor_entity_id='E2',
+            target_entity_id='S1',
+            action='zaps',
+            raw_message='',
+        ),
+        # Medic boosts team at time 8800 ms (200ms before downtime ends).
+        # This is recovery boundary ambiguity.
+        GameEvent(
+            game_id='test_recovery_game',
+            time=8800,
+            event_type='0512',
+            actor_entity_id='M1',
+            action='life_boost',
+            raw_message='',
+        ),
+    ]
+    game.events = events
+
+    # Add expected stats requiring S1 to receive the boost (lives = 19)
+    s1_stats = Sm5Stats(
+        game_id='test_recovery_game',
+        entity_id='S1',
+        lives_left=19,
+        shots_left=30,
+    )
+    med_stats = Sm5Stats(
+        game_id='test_recovery_game',
+        entity_id='M1',
+        lives_left=20,
+        shots_left=15,
+    )
+    e2_stats = Sm5Stats(
+        game_id='test_recovery_game',
+        entity_id='E2',
+        lives_left=15,
+        shots_left=29,
+    )
+    game.sm5_stats = [s1_stats, med_stats, e2_stats]
+
+    replay = LFReplaySystem(game)
+    replay.run()
+
+    assert replay.game_state.players['S1'].lives == 19
+
+
+def test_replay_friendly_fire_and_resupply_lives() -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
+
+    game = LFGame(
+        game_id='test_ff_game',
+        timestamp=datetime.now(),
+        game_type='SM5',
+    )
+
+    t1 = GameTeam(
+        game_id='test_ff_game',
+        team_index=0,
+        desc='Fire Team',
+        color_enum=11,
+        color_desc='Fire',
+        color_rgb='#FF5000',
+    )
+    game.teams = [t1]
+
+    h1 = GameEntity(
+        game_id='test_ff_game',
+        entity_id='H1',
+        type='player',
+        desc='Heavy1',
+        team_index=0,
+        level=1,
+        category=4,
+        battlesuit='Heavy',
+    )
+    c1 = GameEntity(
+        game_id='test_ff_game',
+        entity_id='C1',
+        type='player',
+        desc='Cmd1',
+        team_index=0,
+        level=1,
+        category=1,
+        battlesuit='Commander',
+    )
+    game.entities = [h1, c1]
+
+    events = [
+        GameEvent(
+            game_id='test_ff_game',
+            time=0,
+            event_type='0100',
+            action='start',
+            raw_message='',
+        ),
+        # H1 zaps C1 friendly fire downed team (0208)
+        GameEvent(
+            game_id='test_ff_game',
+            time=1000,
+            event_type='0208',
+            actor_entity_id='H1',
+            target_entity_id='C1',
+            action='zaps',
+            raw_message='',
+        ),
+        # H1 missiles C1 friendly fire downed team (0308)
+        GameEvent(
+            game_id='test_ff_game',
+            time=10000,
+            event_type='0308',
+            actor_entity_id='H1',
+            target_entity_id='C1',
+            action='missiles',
+            raw_message='',
+        ),
+        # H1 resupplies C1 lives (0502)
+        GameEvent(
+            game_id='test_ff_game',
+            time=20000,
+            event_type='0502',
+            actor_entity_id='H1',
+            target_entity_id='C1',
+            action='resupplies',
+            raw_message='',
+        ),
+    ]
+    game.events = events
+
+    replay = LFReplaySystem(game)
+    replay.run()
+
+    # C1 starts with 15 lives.
+    # Zap teammate (-1) -> 14.
+    # Missile teammate (-2) -> 12.
+    # Medic resupply (+4 for commander) -> 16.
+    assert replay.game_state.players['C1'].lives == 16

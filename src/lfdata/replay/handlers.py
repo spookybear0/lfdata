@@ -53,8 +53,7 @@ class LFReplayHandlersMixin:
             # Check if target goes down or resets downtime
             if event.event_type in ['0206', '0208']:
                 was_already_down = target.is_down(event.time)
-                if actor.team_index != target.team_index:
-                    target.lives = max(0, target.lives - 1)
+                target.lives = max(0, target.lives - 1)
                 target.hp = 0
                 target.downtime_ends_at_ms = event.time + 8000
                 target.resettable_starts_at_ms = event.time + 4000
@@ -105,8 +104,7 @@ class LFReplayHandlersMixin:
 
             # Missile immediately downs target or resets downtime
             was_already_down = target.is_down(event.time)
-            if actor.team_index != target.team_index:
-                target.lives = max(0, target.lives - 2)
+            target.lives = max(0, target.lives - 2)
             target.hp = 0
             target.downtime_ends_at_ms = event.time + 8000
             target.resettable_starts_at_ms = event.time + 4000
@@ -213,11 +211,7 @@ class LFReplayHandlersMixin:
         """
         target = self.game_state.players.get(event.target_entity_id)
         if target and not target.is_eliminated():
-            is_medic = (
-                actor.role == LFRole.MEDIC
-                if actor
-                else event.event_type == '0502'
-            )
+            is_medic = event.event_type == '0502'
             if is_medic:
                 target.resupply_lives_from_medic()
             else:
@@ -249,11 +243,7 @@ class LFReplayHandlersMixin:
             str: The event description string.
         """
         if actor:
-            is_medic = (
-                actor.role == LFRole.MEDIC
-                if actor
-                else event.event_type == '0512'
-            )
+            is_medic = event.event_type == '0512'
             if is_medic:
                 actor.special_points = max(0, actor.special_points - 15)
             else:
@@ -264,12 +254,28 @@ class LFReplayHandlersMixin:
                     player.team_index == actor.team_index
                     and player.entity_id != actor.entity_id
                     and not player.is_eliminated()
-                    and player.can_receive_resupply(event.time)
                 ):
-                    if is_medic:
-                        player.resupply_lives_from_medic()
+                    is_ambig = self._is_player_boost_ambiguous(
+                        player, event.time
+                    )
+                    if is_ambig:
+                        key = (event.time, player.entity_id)
+                        if key not in self._encountered_points:
+                            self._encountered_points.append(key)
+                        if key in self._resupply_choices:
+                            should_boost = self._resupply_choices[key]
+                        else:
+                            should_boost = player.can_receive_resupply(
+                                event.time
+                            )
                     else:
-                        player.resupply_shots_from_ammo()
+                        should_boost = player.can_receive_resupply(event.time)
+
+                    if should_boost:
+                        if is_medic:
+                            player.resupply_lives_from_medic()
+                        else:
+                            player.resupply_shots_from_ammo()
         return f'{actor_name} resupplies team'
 
     def _process_event_resupply(
