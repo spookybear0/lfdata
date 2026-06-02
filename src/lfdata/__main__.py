@@ -7,6 +7,47 @@ from lfdata.importer import TdfImporter
 from lfdata.replay import LFReplaySystem
 
 
+def _print_game_state(replay: LFReplaySystem, time_ms: int) -> None:
+    """Prints the complete game state at a specific millisecond timestamp.
+
+    Simulates and formats the current status of all teams and players
+    at the given point in time, displaying score, lives, shots, missiles,
+    special points, and active/eliminated/down states.
+
+    Args:
+        replay: The replay system containing the simulated state.
+        time_ms: The millisecond timestamp of the state.
+    """
+    sorted_teams = sorted(
+        replay.game_state.teams.values(), key=lambda t: t.ranking
+    )
+    print(f'Game State at {time_ms} ms:')
+    print('\nTeams:')
+    for team in sorted_teams:
+        print(f'  Rank {team.ranking}: {team.name} - Score: {team.score}')
+
+    print('\nPlayers:')
+    sorted_players = sorted(
+        replay.game_state.players.values(),
+        key=lambda p: p.score,
+        reverse=True,
+    )
+    for p in sorted_players:
+        codename = replay.entity_names.get(p.entity_id, p.entity_id)
+        if p.is_eliminated():
+            state_str = 'Eliminated'
+        elif p.is_down(time_ms):
+            state_str = f'Down (until {p.downtime_ends_at_ms} ms)'
+        else:
+            state_str = 'Active'
+        print(
+            f'  {codename} ({p.role.display_name}): '
+            f'Score={p.score}, Lives={p.lives}, Shots={p.shots}, '
+            f'Missiles={p.missiles}, Special Points={p.special_points}, '
+            f'State={state_str}'
+        )
+
+
 def main() -> None:
     """Parses command line arguments and runs the LF data tool."""
     if hasattr(sys.stdout, 'reconfigure'):
@@ -31,6 +72,22 @@ def main() -> None:
             'Prints the complete game state given at the specific '
             'number of milliseconds into the game.'
         ),
+    )
+    parser.add_argument(
+        '--state_start_ms',
+        type=int,
+        help='Game time in milliseconds to start printing states.',
+    )
+    parser.add_argument(
+        '--state_end_ms',
+        type=int,
+        help='Game time in milliseconds to stop printing states.',
+    )
+    parser.add_argument(
+        '--state_interval_ms',
+        type=int,
+        default=15000,
+        help='Interval in milliseconds between printed states.',
     )
     parser.add_argument(
         '--video_player',
@@ -133,35 +190,40 @@ def main() -> None:
     if args.state_at is not None:
         replay = LFReplaySystem(game)
         replay.run_up_to(args.state_at)
+        _print_game_state(replay, args.state_at)
 
-        sorted_teams = sorted(
-            replay.game_state.teams.values(), key=lambda t: t.ranking
-        )
-        print(f'Game State at {args.state_at} ms:')
-        print('\nTeams:')
-        for team in sorted_teams:
-            print(f'  Rank {team.ranking}: {team.name} - Score: {team.score}')
+    if args.state_start_ms is not None:
+        start_ms = args.state_start_ms
+        interval_ms = args.state_interval_ms
 
-        print('\nPlayers:')
-        sorted_players = sorted(
-            replay.game_state.players.values(),
-            key=lambda p: p.score,
-            reverse=True,
-        )
-        for p in sorted_players:
-            codename = replay.entity_names.get(p.entity_id, p.entity_id)
-            if p.is_eliminated():
-                state_str = 'Eliminated'
-            elif p.is_down(args.state_at):
-                state_str = f'Down (until {p.downtime_ends_at_ms} ms)'
+        if args.state_end_ms is not None:
+            end_ms = args.state_end_ms
+        else:
+            full_replay = LFReplaySystem(game)
+            full_replay.run()
+            end_ms = game.duration
+            if full_replay.game_ended_at_ms is not None:
+                end_ms = full_replay.game_ended_at_ms
             else:
-                state_str = 'Active'
-            print(
-                f'  {codename} ({p.role.display_name}): '
-                f'Score={p.score}, Lives={p.lives}, Shots={p.shots}, '
-                f'Missiles={p.missiles}, Special Points={p.special_points}, '
-                f'State={state_str}'
-            )
+                sorted_events = sorted(game.events, key=lambda e: e.time)
+                mission_end = full_replay._find_mission_end_ms(sorted_events)
+                if mission_end is not None:
+                    end_ms = mission_end
+            if end_ms is None:
+                end_ms = 0
+
+        current_ms = start_ms
+        first = True
+        while current_ms <= end_ms:
+            if not first:
+                print()
+            else:
+                first = False
+
+            replay = LFReplaySystem(game)
+            replay.run_up_to(current_ms)
+            _print_game_state(replay, current_ms)
+            current_ms += interval_ms
 
     if args.video_state_at is not None:
         from lfdata.video import VisualElementGenerator

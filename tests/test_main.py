@@ -250,3 +250,52 @@ def test_main_alpha_video_out_generation() -> None:
                 use_pipe=True,
                 alpha_output_path='alpha.mp4',
             )
+
+
+def test_main_state_interval(capsys) -> None:
+    real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+    with patch.object(
+        sys,
+        'argv',
+        [
+            'lfdata',
+            '--input_tdf',
+            str(real_path),
+            '--state_start_ms',
+            '800000',
+            '--state_interval_ms',
+            '20000',
+        ],
+    ):
+        main()
+        captured = capsys.readouterr()
+        assert 'Game State at 800000 ms:' in captured.out
+        assert 'Game State at 820000 ms:' in captured.out
+        assert 'Game State at 840000 ms:' in captured.out
+        assert 'Game State at 860000 ms:' in captured.out
+        assert 'Game State at 880000 ms:' not in captured.out
+
+
+def test_main_state_interval_with_end(capsys) -> None:
+    real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+    with patch.object(
+        sys,
+        'argv',
+        [
+            'lfdata',
+            '--input_tdf',
+            str(real_path),
+            '--state_start_ms',
+            '1000',
+            '--state_end_ms',
+            '3000',
+            '--state_interval_ms',
+            '1000',
+        ],
+    ):
+        main()
+        captured = capsys.readouterr()
+        assert 'Game State at 1000 ms:' in captured.out
+        assert 'Game State at 2000 ms:' in captured.out
+        assert 'Game State at 3000 ms:' in captured.out
+        assert 'Game State at 4000 ms:' not in captured.out
