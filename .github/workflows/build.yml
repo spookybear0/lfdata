@@ -45,11 +45,8 @@ jobs:
           pip install .[dev]
           pip install pyinstaller
 
-      - name: Install FFmpeg (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          export HOMEBREW_NO_AUTO_UPDATE=1
-          brew install ffmpeg
+      - name: Set up FFmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v3
 
       - name: Run tests
         run: |
