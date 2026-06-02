@@ -1,0 +1,541 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.3, pluggy-1.6.0
+rootdir: /home/runner/work/lfdata/lfdata
+configfile: pyproject.toml
+testpaths: tests
+collected 101 items
+
+tests/test_base.py .                                                     [  0%]
+tests/test_color.py ..                                                   [  2%]
+tests/test_element.py ..                                                 [  4%]
+tests/test_entity.py .                                                   [  5%]
+tests/test_event.py .                                                    [  6%]
+tests/test_game.py .                                                     [  7%]
+tests/test_generator.py .............                                    [ 20%]
+tests/test_handlers.py .                                                 [ 21%]
+tests/test_helpers.py ......                                             [ 27%]
+tests/test_main.py .FFFFFFFF.F                                           [ 38%]
+tests/test_player.py .                                                   [ 39%]
+tests/test_record.py .                                                   [ 40%]
+tests/test_renderer.py ......F....................                       [ 67%]
+tests/test_replay.py F............                                       [ 80%]
+tests/test_role.py ..                                                    [ 82%]
+tests/test_score_history.py .                                            [ 83%]
+tests/test_sm5_stats.py .                                                [ 84%]
+tests/test_state.py ......                                               [ 90%]
+tests/test_state_history.py .                                            [ 91%]
+tests/test_storage.py .F                                                 [ 93%]
+tests/test_tdf.py ...F                                                   [ 97%]
+tests/test_team.py .                                                     [ 98%]
+tests/test_team_type.py ..                                               [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_main_print_replay ____________________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x7f1b9399f9d0>
+
+    def test_main_print_replay(capsys) -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        with patch.object(
+            sys,
+            'argv',
+            ['lfdata', '--input_tdf', str(real_path), '--print_replay'],
+        ):
+>           main()
+
+tests/test_main.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/lfdata/__main__.py:125: in main
+    game = importer.parse()
+           ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b93614c50>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+______________________________ test_main_state_at ______________________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x7f1b93955cd0>
+
+    def test_main_state_at(capsys) -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        with patch.object(
+            sys,
+            'argv',
+            ['lfdata', '--input_tdf', str(real_path), '--state_at', '5000'],
+        ):
+>           main()
+
+tests/test_main.py:37: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/lfdata/__main__.py:125: in main
+    game = importer.parse()
+           ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b937b7210>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+___________________________ test_main_video_state_at ___________________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x7f1b93976c50>
+
+    def test_main_video_state_at(capsys) -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        with patch.object(
+            sys,
+            'argv',
+            ['lfdata', '--input_tdf', str(real_path), '--video_state_at', '5000'],
+        ):
+>           main()
+
+tests/test_main.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/lfdata/__main__.py:125: in main
+    game = importer.parse()
+           ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b93948cd0>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+______________________________ test_main_image_at ______________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-0/test_main_image_at0')
+
+    def test_main_image_at(tmp_path: Path) -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        with patch.object(
+            sys,
+            'argv',
+            [
+                'lfdata',
+                '--input_tdf',
+                str(real_path),
+                '--image-outdir',
+                str(tmp_path),
+                '--image-at',
+                '5000',
+            ],
+        ):
+>           main()
+
+tests/test_main.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/lfdata/__main__.py:125: in main
+    game = importer.parse()
+           ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b9372aa50>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+____________________ test_main_video_frame_generation_range ____________________
+
+    def test_main_video_frame_generation_range() -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        with patch(
+            'lfdata.video.VideoGenerator._generate_frames'
+        ) as mock_gen_frames:
+            with patch.object(
+                sys,
+                'argv',
+                [
+                    'lfdata',
+                    '--input_tdf',
+                    str(real_path),
+                    '--video_player',
+                    'Cyborg',
+                    '--video_start_ms',
+                    '1000',
+                    '--video_end_ms',
+                    '2000',
+                ],
+            ):
+>               main()
+
+tests/test_main.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/lfdata/__main__.py:125: in main
+    game = importer.parse()
+           ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b935f69d0>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+_____________________________ test_main_video_out ______________________________
+
+    def test_main_video_out() -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        with patch('lfdata.video.VideoGenerator.generate') as mock_generate:
+            with patch.object(
+                sys,
+                'argv',
+                [
+                    'lfdata',
+                    '--input_tdf',
+                    str(real_path),
+                    '--video_player',
+                    'Cyborg',
+                    '--video_start_ms',
+                    '1000',
+                    '--video_end_ms',
+                    '2000',
+                    '--video_out',
+                    'output.mp4',
+                ],
+            ):
+>               main()
+
+tests/test_main.py:127: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/lfdata/__main__.py:125: in main
+    game = importer.parse()
+           ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b9378e010>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+___________________________ test_main_video_out_fps ____________________________
+
+    def test_main_video_out_fps() -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        with patch('lfdata.video.VideoGenerator.generate') as mock_generate:
+            with patch.object(
+                sys,
+                'argv',
+                [
+                    'lfdata',
+                    '--input_tdf',
+                    str(real_path),
+                    '--video_player',
+                    'Cyborg',
+                    '--video_start_ms',
+                    '1000',
+                    '--video_end_ms',
+                    '2000',
+                    '--video_out',
+                    'output.mp4',
+                    '--fps',
+                    '30',
+                ],
+            ):
+>               main()
+
+tests/test_main.py:162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/lfdata/__main__.py:125: in main
+    game = importer.parse()
+           ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b939ce590>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+_________________________ test_main_video_out_no_pipe __________________________
+
+    def test_main_video_out_no_pipe() -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        with patch('lfdata.video.VideoGenerator.generate') as mock_generate:
+            with patch.object(
+                sys,
+                'argv',
+                [
+                    'lfdata',
+                    '--input_tdf',
+                    str(real_path),
+                    '--video_player',
+                    'Cyborg',
+                    '--video_start_ms',
+                    '1000',
+                    '--video_end_ms',
+                    '2000',
+                    '--video_out',
+                    'output.mp4',
+                    '--no_pipe',
+                ],
+            ):
+>               main()
+
+tests/test_main.py:196: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/lfdata/__main__.py:125: in main
+    game = importer.parse()
+           ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b939c1410>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+_____________________ test_main_alpha_video_out_generation _____________________
+
+    def test_main_alpha_video_out_generation() -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        with patch('lfdata.video.VideoGenerator.generate') as mock_generate:
+            with patch.object(
+                sys,
+                'argv',
+                [
+                    'lfdata',
+                    '--input_tdf',
+                    str(real_path),
+                    '--video_out',
+                    'output.mp4',
+                    '--alpha_video_out',
+                    'alpha.mp4',
+                ],
+            ):
+>               main()
+
+tests/test_main.py:242: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/lfdata/__main__.py:125: in main
+    game = importer.parse()
+           ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b938e6090>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+______________________ test_font_resolution_and_defaults _______________________
+
+    def test_font_resolution_and_defaults() -> None:
+        from lfdata.model import LFGame
+        from lfdata.video.renderer import VideoGenerator
+        from lfdata.video.element import UIElement, UIElementStyle
+        from unittest.mock import patch
+        from PIL import Image
+    
+        game = LFGame(game_id='test_font_resolution', game_type='SM5')
+        vg = VideoGenerator(game)
+    
+        import os
+    
+        # 1. Test _resolve_font_path for fonts in the fonts/ directory
+>       assert os.path.normpath(vg._resolve_font_path('Anton')) == os.path.normpath(
+            'fonts/GoogleSans-Bold.ttf'
+        )
+E       AssertionError: assert 'Anton' == 'fonts/GoogleSans-Bold.ttf'
+E         
+E         - fonts/GoogleSans-Bold.ttf
+E         + Anton
+
+tests/test_renderer.py:486: AssertionError
+______________________ test_replay_system_with_real_game _______________________
+
+    def test_replay_system_with_real_game() -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        importer = TdfImporter(real_path)
+>       game = importer.parse()
+               ^^^^^^^^^^^^^^^^
+
+tests/test_replay.py:10: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b9114a0d0>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+_______________________ test_database_storage_real_game ________________________
+
+    def test_database_storage_real_game() -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        importer = TdfImporter(real_path)
+>       game = importer.parse()
+               ^^^^^^^^^^^^^^^^
+
+tests/test_storage.py:28: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b91153750>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+______________________ test_tdf_importer_parse_real_file _______________________
+
+    def test_tdf_importer_parse_real_file() -> None:
+        real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+        importer = TdfImporter(real_path)
+>       game = importer.parse()
+               ^^^^^^^^^^^^^^^^
+
+tests/test_tdf.py:34: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lfdata.importer.tdf.TdfImporter object at 0x7f1b91125d50>
+
+    def parse(self) -> LFGame:
+        """Parses the TDF file and returns a LFGame data object.
+    
+        Returns:
+            LFGame: The parsed LFGame object.
+    
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        if not self.file_path.exists():
+>           raise FileNotFoundError(f'TDF file not found: {self.file_path}')
+E           FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+
+src/lfdata/importer/tdf.py:72: FileNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_main.py::test_main_print_replay - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+FAILED tests/test_main.py::test_main_state_at - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+FAILED tests/test_main.py::test_main_video_state_at - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+FAILED tests/test_main.py::test_main_image_at - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+FAILED tests/test_main.py::test_main_video_frame_generation_range - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+FAILED tests/test_main.py::test_main_video_out - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+FAILED tests/test_main.py::test_main_video_out_fps - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+FAILED tests/test_main.py::test_main_video_out_no_pipe - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+FAILED tests/test_main.py::test_main_alpha_video_out_generation - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+FAILED tests/test_renderer.py::test_font_resolution_and_defaults - AssertionError: assert 'Anton' == 'fonts/GoogleSans-Bold.ttf'
+  
+  - fonts/GoogleSans-Bold.ttf
+  + Anton
+FAILED tests/test_replay.py::test_replay_system_with_real_game - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+FAILED tests/test_storage.py::test_database_storage_real_game - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+FAILED tests/test_tdf.py::test_tdf_importer_parse_real_file - FileNotFoundError: TDF file not found: /home/runner/work/lfdata/lfdata/assets/sm5_sanitized.tdf
+======================== 13 failed, 88 passed in 4.96s =========================
