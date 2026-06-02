@@ -1085,7 +1085,7 @@ def test_team_boost_rules() -> None:
         desc='Ammo2',
         team_index=1,
         level=1,
-        category=2,
+        category=4,
         battlesuit='Ammo',
     )
     # Scout S2 on team 1
@@ -1886,3 +1886,115 @@ def test_replay_friendly_fire_and_resupply_lives() -> None:
     # Missile teammate (-2) -> 12.
     # Medic resupply (+4 for commander) -> 16.
     assert replay.game_state.players['C1'].lives == 16
+
+
+def test_heavy_special_points_never_accumulate() -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame, GameTeam, GameEntity, GameEvent
+
+    game = LFGame(
+        game_id='test_heavy_sp_game',
+        timestamp=datetime.now(),
+        game_type='SM5',
+    )
+
+    t1 = GameTeam(
+        game_id='test_heavy_sp_game',
+        team_index=0,
+        desc='Fire Team',
+        color_enum=11,
+        color_desc='Fire',
+        color_rgb='#FF5000',
+    )
+    t2 = GameTeam(
+        game_id='test_heavy_sp_game',
+        team_index=1,
+        desc='Earth Team',
+        color_enum=13,
+        color_desc='Earth',
+        color_rgb='#00FF00',
+    )
+    game.teams = [t1, t2]
+
+    # Heavy on team 0
+    heavy = GameEntity(
+        game_id='test_heavy_sp_game',
+        entity_id='H1',
+        type='player',
+        desc='Heavy1',
+        team_index=0,
+        level=1,
+        category=2,  # Heavy
+        battlesuit='Heavy',
+    )
+    # Enemy commander on team 1
+    enemy = GameEntity(
+        game_id='test_heavy_sp_game',
+        entity_id='C2',
+        type='player',
+        desc='Cmd2',
+        team_index=1,
+        level=1,
+        category=1,
+        battlesuit='Commander',
+    )
+    # Enemy base on team 1
+    base = GameEntity(
+        game_id='test_heavy_sp_game',
+        entity_id='B2',
+        type='standard-target',
+        desc='Base2',
+        team_index=1,
+        level=1,
+        category=9,
+        battlesuit='',
+    )
+    game.entities = [heavy, enemy, base]
+
+    events = [
+        # Mission start
+        GameEvent(
+            game_id='test_heavy_sp_game',
+            time=0,
+            event_type='0100',
+            action='start',
+            raw_message='',
+        ),
+        # Heavy zaps enemy Commander (gets score but NO SP!)
+        GameEvent(
+            game_id='test_heavy_sp_game',
+            time=1000,
+            event_type='0205',
+            actor_entity_id='H1',
+            target_entity_id='C2',
+            action='zaps',
+            raw_message='',
+        ),
+        # Heavy missiles enemy Commander (gets score but NO SP!)
+        GameEvent(
+            game_id='test_heavy_sp_game',
+            time=2000,
+            event_type='0306',
+            actor_entity_id='H1',
+            target_entity_id='C2',
+            action='missiled',
+            raw_message='',
+        ),
+        # Heavy captures enemy base (gets score but NO SP!)
+        GameEvent(
+            game_id='test_heavy_sp_game',
+            time=3000,
+            event_type='0204',
+            actor_entity_id='H1',
+            target_entity_id='B2',
+            action='destroys base',
+            raw_message='',
+        ),
+    ]
+    game.events = events
+
+    replay = LFReplaySystem(game)
+    replay.run()
+
+    heavy_state = replay.game_state.players['H1']
+    assert heavy_state.special_points == 0

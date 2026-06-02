@@ -44,7 +44,10 @@ class LFReplayHandlersMixin:
                 actor.score -= 100
             else:
                 actor.score += 100
-                if not (actor.role == LFRole.SCOUT and actor.has_rapid_fire):
+                if (
+                    not (actor.role == LFRole.SCOUT and actor.has_rapid_fire)
+                    and actor.role != LFRole.HEAVY
+                ):
                     actor.special_points += 1
 
             # Target always loses 20 score (unless already eliminated)
@@ -96,7 +99,10 @@ class LFReplayHandlersMixin:
                 actor.score -= 500
             else:
                 actor.score += 500
-                if not (actor.role == LFRole.SCOUT and actor.has_rapid_fire):
+                if (
+                    not (actor.role == LFRole.SCOUT and actor.has_rapid_fire)
+                    and actor.role != LFRole.HEAVY
+                ):
                     actor.special_points += 2
 
             # Target always loses 100 score (unless already eliminated)
@@ -150,7 +156,10 @@ class LFReplayHandlersMixin:
             ):
                 actor.captured_bases.add(event.target_entity_id)
                 actor.score += 1001
-                if not (actor.role == LFRole.SCOUT and actor.has_rapid_fire):
+                if (
+                    not (actor.role == LFRole.SCOUT and actor.has_rapid_fire)
+                    and actor.role != LFRole.HEAVY
+                ):
                     actor.special_points += 5
 
         if event.event_type == '0B03':

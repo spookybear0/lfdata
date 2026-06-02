@@ -689,9 +689,12 @@ class LFReplaySystem(LFReplayHandlersMixin):
                         ):
                             player.captured_bases.add(base.entity_id)
                             player.score += 1001
-                            if not (
-                                player.role == LFRole.SCOUT
-                                and player.has_rapid_fire
+                            if (
+                                not (
+                                    player.role == LFRole.SCOUT
+                                    and player.has_rapid_fire
+                                )
+                                and player.role != LFRole.HEAVY
                             ):
                                 player.special_points += 5
 
