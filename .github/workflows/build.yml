@@ -64,17 +64,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest > pytest_report.txt 2>&1
-
-      - name: Push failure report
-        if: failure()
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git checkout -B debug-failure-log
-          git add pytest_report.txt
-          git commit -m "chore: test failure report"
-          git push -f origin debug-failure-log
+          pytest
 
       - name: Build binary with PyInstaller
         run: |
