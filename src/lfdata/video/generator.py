@@ -561,7 +561,7 @@ class VisualElementGenerator:
                 )
             ):
                 p_name = self.entity_names.get(pid, pid)
-                desc = f'Medic {p_name} has {player.lives} left'
+                desc = f'Medic {p_name} has {player.lives} lives left'
                 self.event_log.append(
                     {
                         'time': event.time,

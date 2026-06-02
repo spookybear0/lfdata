@@ -562,7 +562,7 @@ def test_important_events_filtering() -> None:
         (ev for ev in medic_events if ev['desc'].startswith('Medic')), None
     )
     assert medic_event is not None
-    assert medic_event['desc'] == 'Medic MedicPlayer has 15 left'
+    assert medic_event['desc'] == 'Medic MedicPlayer has 15 lives left'
     assert medic_event['is_important'] is True
 
     # Check for player elimination event at 156000 ms
