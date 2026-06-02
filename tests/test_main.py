@@ -273,7 +273,9 @@ def test_main_state_interval(capsys) -> None:
         assert 'Game State at 820000 ms:' in captured.out
         assert 'Game State at 840000 ms:' in captured.out
         assert 'Game State at 860000 ms:' in captured.out
-        assert 'Game State at 880000 ms:' not in captured.out
+        assert 'Game State at 880000 ms:' in captured.out
+        assert 'Game State at 900000 ms:' in captured.out
+        assert 'Game State at 920000 ms:' not in captured.out
 
 
 def test_main_state_interval_with_end(capsys) -> None:

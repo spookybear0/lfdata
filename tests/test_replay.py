@@ -1998,3 +1998,48 @@ def test_heavy_special_points_never_accumulate() -> None:
 
     heavy_state = replay.game_state.players['H1']
     assert heavy_state.special_points == 0
+
+
+def test_replay_missing_0101() -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame, GameEntity, GameEvent
+
+    game = LFGame(
+        game_id='test_missing_0101',
+        timestamp=datetime.now(),
+        game_type='SM5',
+    )
+    p = GameEntity(
+        game_id='test_missing_0101',
+        entity_id='P1',
+        type='player',
+        desc='Player1',
+        team_index=0,
+        level=1,
+        category=1,
+        battlesuit='Commander',
+    )
+    game.entities = [p]
+    game.events = [
+        GameEvent(
+            game_id='test_missing_0101',
+            time=0,
+            event_type='0100',
+            action='start',
+            raw_message='',
+        ),
+        GameEvent(
+            game_id='test_missing_0101',
+            time=5000,
+            event_type='0200',
+            actor_entity_id='P1',
+            action='zap',
+            raw_message='',
+        ),
+    ]
+
+    replay = LFReplaySystem(game)
+    replay.run()
+
+    # The last event time is 5000, so game_ended_at_ms should be 5000
+    assert replay.game_ended_at_ms == 5000

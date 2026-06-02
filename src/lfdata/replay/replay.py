@@ -50,6 +50,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
         )
         self.records: list[LFReplayEventRecord] = []
         self.game_ended_at_ms: int | None = None
+        self._team_elimination_processed = False
 
         if self.game.sm5_stats:
             self._search_choices()
@@ -65,6 +66,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
         )
         self.records = []
         self.game_ended_at_ms = None
+        self._team_elimination_processed = False
         self._encountered_points = []
 
     def _is_player_boost_ambiguous(
@@ -140,9 +142,12 @@ class LFReplaySystem(LFReplayHandlersMixin):
             self._dispatch_event(event)
             self.game_state.update_team_scores_and_rankings()
 
-            if self._is_game_over():
+            if event.event_type == '0101':
                 self.game_ended_at_ms = event.time
                 break
+
+        if self.game_ended_at_ms is None and sorted_events:
+            self.game_ended_at_ms = sorted_events[-1].time
 
         success = self._verify_final_stats()
         return success, list(self._encountered_points)
@@ -283,9 +288,12 @@ class LFReplaySystem(LFReplayHandlersMixin):
             )
             self.records.append(record)
 
-            if self._is_game_over():
+            if event.event_type == '0101':
                 self.game_ended_at_ms = event.time
                 break
+
+        if self.game_ended_at_ms is None and sorted_events:
+            self.game_ended_at_ms = sorted_events[-1].time
 
         return self.records
 
@@ -515,7 +523,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
             self._dispatch_event(event)
             self.game_state.update_team_scores_and_rankings()
 
-            if self._is_game_over():
+            if event.event_type == '0101':
                 self.game_ended_at_ms = event.time
                 return
 
@@ -561,7 +569,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
         """
         if actor_id and actor_id in self.game_state.players:
             player = self.game_state.players[actor_id]
-            if player.role != LFRole.AMMO and not player.is_eliminated():
+            if player.role != LFRole.AMMO:
                 player.shots = max(0, player.shots - 1)
 
     def _decrement_missiles(self, actor_id: str | None) -> None:
@@ -653,6 +661,9 @@ class LFReplaySystem(LFReplayHandlersMixin):
         Args:
             event_time: The current event timestamp in milliseconds.
         """
+        if self._team_elimination_processed:
+            return
+
         active_teams = set()
         for player in self.game_state.players.values():
             active_teams.add(player.team_index)
@@ -668,6 +679,7 @@ class LFReplaySystem(LFReplayHandlersMixin):
                 eliminated_teams.add(team_idx)
 
         if eliminated_teams:
+            self._team_elimination_processed = True
             all_bases = [
                 e
                 for e in self.game.entities
