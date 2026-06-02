@@ -1203,11 +1203,11 @@ def test_team_boost_rules() -> None:
     a2_state = replay.game_state.players['A2']
     s2_state = replay.game_state.players['S2']
 
-    # M2 started with 20 SP, used 15 for boost -> should have 5 SP
-    assert m2_state.special_points == 5
+    # M2 started with 20 SP, used 10 for boost -> should have 10 SP
+    assert m2_state.special_points == 10
 
-    # A2 started with 12 SP, used 10 for boost -> should have 2 SP
-    assert a2_state.special_points == 2
+    # A2 started with 12 SP, used 15 for boost -> should have 0 SP
+    assert a2_state.special_points == 0
 
     # S2 had rapid fire. S2 was boosted but should RETAIN rapid fire!
     assert s2_state.has_rapid_fire is True

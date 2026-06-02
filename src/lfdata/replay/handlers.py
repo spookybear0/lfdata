@@ -254,9 +254,9 @@ class LFReplayHandlersMixin:
         if actor:
             is_medic = event.event_type == '0512'
             if is_medic:
-                actor.special_points = max(0, actor.special_points - 15)
-            else:
                 actor.special_points = max(0, actor.special_points - 10)
+            else:
+                actor.special_points = max(0, actor.special_points - 15)
 
             for player in self.game_state.players.values():
                 if (
