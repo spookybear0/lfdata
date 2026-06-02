@@ -45,15 +45,22 @@ jobs:
           pip install .[dev]
           pip install pyinstaller
 
-      - name: Set up FFmpeg (Windows & Linux)
-        if: runner.os != 'macOS'
-        uses: FedericoCarboni/setup-ffmpeg@v3
+      - name: Install FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
       - name: Install FFmpeg (macOS)
         if: runner.os == 'macOS'
         run: |
           export HOMEBREW_NO_AUTO_UPDATE=1
           brew install ffmpeg
+
+      - name: Install FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install ffmpeg --no-progress
 
       - name: Run tests
         run: |
