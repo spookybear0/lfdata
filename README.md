@@ -2,6 +2,11 @@
 
 A Python project for managing LF data, sourced from TDF files.
 
+## How to use it
+
+If you're using a prebuild executable, go to the
+[usage instructions](docs/usage.md) to find out how to create a video.
+
 ## Setup
 
 Before running the tool, you should set up a Python virtual environment and install the required dependencies. 
@@ -84,6 +89,7 @@ run.bat --input_tdf assets/sm5_sanitized.tdf --print_replay
 * `--print_replay`: (Optional) Prints all parsed game replay events to stdout.
 
 ## Nicer projects
-If you want to see other organic lf-based code, check out:
+If you want to see actual artisanal organic lf-based code instead of this
+slop, check out:
 - https://github.com/spookybear0/laserforce_ranking
 - https://github.com/zmaniacz/lfstats-next

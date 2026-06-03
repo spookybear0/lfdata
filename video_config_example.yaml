@@ -1,0 +1,254 @@
+# lfdata Video Generation Configuration Example
+#
+# This file defines the layout, typography, performance settings, and styling
+# for generating laser tag game replay videos.
+
+# --- Global Video Settings ---
+
+# Frame rate for the output video. High values look smoother but take longer to render.
+# Default: 60
+fps: 60
+
+# Number of milliseconds to continue rendering footage after the game is over.
+# Default: 10000 (10 seconds)
+extra_footage_ms: 10000
+
+# Resolution of the output video in pixels [width, height].
+# Default: [1920, 1080]
+resolution: [1920, 1080]
+
+# Animation interpolation function to use for transitions (e.g. scoreboard reordering, fading).
+# Supported values: linear, ease-in, ease-out, ease-in-out
+# Default: ease-in-out
+animation: ease-in-out
+
+# The default target player whose specific stats/events are shown on the HUD.
+# If set, this name must match the player's name in the game.
+# Default: null (no specific player focus)
+player_name: null
+
+# FFmpeg settings:
+# 'use_pipe': stream frame bytes directly to FFmpeg instead of writing temp PNG files.
+# Default: true
+use_pipe: true
+
+# 'codec': The custom video encoder to use.
+# If null, the generator automatically picks the best hardware-accelerated H.264 encoder
+# on the system, or falls back to 'libx264'.
+# Default: null
+codec: null
+
+
+# --- Default Styling ---
+# These settings apply to text elements unless overridden by the element's specific style block.
+
+# Font family name. The font must exist in the 'fonts/' directory.
+# Default: GoogleSans-Bold
+font: GoogleSans-Bold
+
+# Font style (normal, bold, italic).
+# Default: normal
+style: normal
+
+# Font size, relative to the resolution.
+# A size of 20 roughly occupies 1/40 of the video height (approx. 27px at 1080p).
+# Default: 20
+size: 20
+
+# Color in RGBA hex format (#rrggbbaa).
+# Default: #ffffffff (solid white)
+color: '#ffffffff'
+
+# Background color of the video frames.
+# Default: #00000000 (transparent)
+background_color: '#00000000'
+
+# Time in seconds it takes for elements (like event logs) to fade out completely.
+# Default: 2.0
+fade_out_time: 2.0
+
+
+# --- UI Elements Settings ---
+# You can customize the positioning, scale, and visibility of each UI element here.
+# Position coordinates (x, y) are normalized relative to the screen (0.0 to 1.0).
+# Extents coordinates [w, h] specify the normalized width and height of container areas.
+# Align options: left, center, right.
+
+elements:
+  # Game Type display (e.g. SM5, Space Marines)
+  game_type:
+    enabled: true
+    x: 0.98
+    y: 0.96
+    align: right
+    style:
+      size: 14
+
+  # Game Timer (stops incrementing when game is over)
+  time:
+    enabled: true
+    x: 0.98
+    y: 0.22
+    align: right
+    style:
+      size: 40
+      font: advanced_pixel_lcd-7
+
+  # The name of the focused player
+  player_name:
+    enabled: true
+    x: 0.5
+    y: 0.05
+    align: center
+    style:
+      size: 24
+
+  # The role of the focused player (e.g. Commander, Heavy, Medic)
+  player_role:
+    enabled: true
+    x: 0.5
+    y: 0.09
+    align: center
+    style:
+      size: 16
+
+  # Remaining lives of the focused player (Counter)
+  player_lives:
+    enabled: true
+    x: 0.25
+    y: 0.92
+    extents: [0.05, 0.05]
+    align: left
+    icon: lives
+    style:
+      size: 18
+
+  # Remaining shots of the focused player (Counter)
+  player_shots:
+    enabled: true
+    x: 0.35
+    y: 0.92
+    extents: [0.05, 0.05]
+    align: left
+    icon: shots
+    style:
+      size: 18
+
+  # Remaining missiles of the focused player (Counter)
+  player_missiles:
+    enabled: true
+    x: 0.45
+    y: 0.92
+    extents: [0.05, 0.05]
+    align: left
+    icon: missiles
+    style:
+      size: 18
+
+  # Shield/HP status of the focused player (Counter)
+  player_hitpoints:
+    enabled: true
+    x: 0.55
+    y: 0.92
+    extents: [0.05, 0.05]
+    align: left
+    icon: shields
+    style:
+      size: 18
+
+  # Special points of the focused player (Counter)
+  player_special_points:
+    enabled: true
+    x: 0.65
+    y: 0.92
+    extents: [0.05, 0.05]
+    align: left
+    icon: sp
+    style:
+      size: 18
+
+  # Current score of the focused player
+  player_score:
+    enabled: true
+    x: 0.98
+    y: 0.05
+    align: right
+    style:
+      size: 36
+
+  # The game scoreboard / team rankings
+  scoreboard:
+    enabled: true
+    x: 0.02
+    y: 0.4
+    extents: [0.4, 0.4]
+    align: left
+    draw_background: false
+    draw_borders: false
+    style:
+      size: 15
+
+  # Downtime progress bar (visible when the focused player is deactivated)
+  downtime:
+    enabled: true
+    x: 0.3
+    y: 0.14
+    extents: [0.4, 0.03]
+
+  # Multi-line events log specifically related to the focused player
+  player_events:
+    enabled: true
+    x: 0.5
+    y: 0.18
+    align: center
+    style:
+      size: 18
+
+  # Multi-line critical game-wide events log (e.g. nukes, eliminations)
+  game_events:
+    enabled: true
+    x: 0.5
+    y: 0.28
+    align: center
+    style:
+      size: 20
+
+  # Scrolling log of all game events (similar to a Star Wars scroller)
+  all_game_events:
+    enabled: true
+    x: 0.75
+    y: 0.6
+    extents: [0.25, 0.25]
+    align: left
+    tilt: 10.0 # Angle tilt of the scroll perspective in degrees
+    style:
+      size: 16
+
+  # The calendar date of the game
+  date_of_game:
+    enabled: true
+    x: 0.98
+    y: 0.92
+    align: right
+    style:
+      size: 18
+    format: "%Y-%m-%d %H:%M:%S" # Optional datetime formatting pattern, defaults to standard format
+
+  # Custom static text blocks (disabled by default)
+  user_defined_text_1:
+    enabled: false
+    x: 0.1
+    y: 0.6
+    align: left
+    style:
+      size: 20
+    text: "Custom Text Overlay 1"
+
+  user_defined_text_2:
+    enabled: false
+    x: 0.1
+    y: 0.7
+    align: left
+    style:
+      size: 20
+    text: "Custom Text Overlay 2"
