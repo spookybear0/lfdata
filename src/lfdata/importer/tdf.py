@@ -7,6 +7,7 @@ from lfdata.model import (
     GameEntity,
     GameEvent,
     GameTeam,
+    LFCentre,
     LFGame,
     Player,
     PlayerStateHistory,
@@ -106,6 +107,11 @@ class TdfImporter:
             game.file_version = parts[1]
             game.program_version = parts[2]
             game.centre = parts[3]
+            try:
+                centre_enum = LFCentre.from_code(parts[3])
+                game.arena_name = centre_enum.arena_name
+            except ValueError:
+                game.arena_name = None
 
     def _parse_mission(self, parts: list[str], game: LFGame) -> None:
         """Parses record type 1 (Mission).

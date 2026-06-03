@@ -13,6 +13,7 @@ def test_database_storage_save_and_retrieve() -> None:
         game_id='test_game_001',
         timestamp=datetime.now(),
         game_type='Test Game',
+        arena_name='Brisbane',
     )
 
     assert storage.save_game(game) is True
@@ -20,6 +21,7 @@ def test_database_storage_save_and_retrieve() -> None:
     retrieved = storage.get_game('test_game_001')
     assert retrieved is not None
     assert retrieved.game_id == 'test_game_001'
+    assert retrieved.arena_name == 'Brisbane'
 
 
 def test_database_storage_real_game() -> None:
@@ -33,6 +35,7 @@ def test_database_storage_real_game() -> None:
     retrieved = storage.get_game('sm5_sanitized')
     assert retrieved is not None
     assert retrieved.game_id == 'sm5_sanitized'
+    assert retrieved.arena_name == 'Invasion'
     assert len(retrieved.teams) == 3
     assert len(retrieved.entities) > 0
     assert len(retrieved.events) > 0

@@ -178,6 +178,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
             'style': {'size': 20},
             'text': '',
         },
+        'centre_name': {
+            'enabled': False,
+            'x': 0.1,
+            'y': 0.8,
+            'align': 'left',
+            'style': {'size': 20},
+        },
     },
 }
 

@@ -25,6 +25,7 @@ class LFGame(Base):
         String(20), nullable=True
     )
     centre: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    arena_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     duration: Mapped[int | None] = mapped_column(Integer, nullable=True)
     penalty: Mapped[int | None] = mapped_column(Integer, nullable=True)
 

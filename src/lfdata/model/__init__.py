@@ -4,6 +4,7 @@ from lfdata.model.base import Base
 from lfdata.model.constants.color import LFTeamColor
 from lfdata.model.constants.role import LFRole
 from lfdata.model.constants.team_type import LFTeamType
+from lfdata.model.constants.centre import LFCentre
 from lfdata.model.objects.entity import GameEntity
 from lfdata.model.objects.event import GameEvent
 from lfdata.model.objects.game import LFGame
@@ -26,4 +27,5 @@ __all__ = [
     'LFRole',
     'LFTeamColor',
     'LFTeamType',
+    'LFCentre',
 ]

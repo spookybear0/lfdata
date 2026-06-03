@@ -252,3 +252,12 @@ elements:
     style:
       size: 20
     text: "Custom Text Overlay 2"
+
+  # The name of the centre / arena (disabled by default)
+  centre_name:
+    enabled: false
+    x: 0.1
+    y: 0.8
+    align: left
+    style:
+      size: 20

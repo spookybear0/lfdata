@@ -1152,6 +1152,15 @@ class VisualElementGenerator:
         if el_user2:
             elements.append(el_user2)
 
+        centre_text = self.game.arena_name or self.game.centre or ''
+        el_centre = self._create_ui_element(
+            'centre_name',
+            text=centre_text,
+            element_type='text',
+        )
+        if el_centre:
+            elements.append(el_centre)
+
     def _add_player_stats_hud_elements(
         self,
         elements: list[UIElement],

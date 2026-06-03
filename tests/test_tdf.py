@@ -39,6 +39,7 @@ def test_tdf_importer_parse_real_file() -> None:
     assert game.file_version == '2.005'
     assert game.program_version == '8.503'
     assert game.centre == '4-43'
+    assert game.arena_name == 'Invasion'
     assert game.duration == 900000
     assert game.penalty == -1000
     assert len(game.teams) == 3

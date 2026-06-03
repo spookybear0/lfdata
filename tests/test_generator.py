@@ -1009,6 +1009,8 @@ def test_new_ui_elements_and_custom_fields() -> None:
         timestamp=dt,
         game_type='SM5',
         start='20240114205710',
+        centre='4-43',
+        arena_name='Invasion',
     )
 
     # 2. Test default settings (date_of_game enabled, user defined disabled)
@@ -1039,6 +1041,8 @@ def test_new_ui_elements_and_custom_fields() -> None:
         (el for el in elements if el.text == 'Custom Banner 2'), None
     )
     assert user2_el is None
+    centre_el = next((el for el in elements if el.text == 'Invasion'), None)
+    assert centre_el is None
 
     # 3. Test config overrides: custom format for date, and enable user texts
     config = {
@@ -1053,6 +1057,9 @@ def test_new_ui_elements_and_custom_fields() -> None:
             'user_defined_text_2': {
                 'enabled': True,
                 'text': 'Custom Banner 2',
+            },
+            'centre_name': {
+                'enabled': True,
             },
         }
     }
@@ -1099,6 +1106,21 @@ def test_new_ui_elements_and_custom_fields() -> None:
     assert user2_el_over.x == 0.1
     assert user2_el_over.y == 0.7
     assert user2_el_over.style.size == 20
+
+    # Check centre name
+    centre_el_over = next(
+        (
+            el
+            for el in elements_over
+            if el.element_type == 'text' and el.text == 'Invasion'
+        ),
+        None,
+    )
+    assert centre_el_over is not None
+    assert centre_el_over.align == 'left'
+    assert centre_el_over.x == 0.1
+    assert centre_el_over.y == 0.8
+    assert centre_el_over.style.size == 20
 
 
 def test_player_name_normalization_matching() -> None:
