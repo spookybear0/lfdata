@@ -75,6 +75,7 @@ jobs:
         run: |
           mkdir -p dist/${{ matrix.artifact_name }}
           cp dist/${{ matrix.bin_name }} dist/${{ matrix.artifact_name }}/
+          cp video_config_example.yaml dist/${{ matrix.artifact_name }}/
           mkdir -p dist/${{ matrix.artifact_name }}/fonts
           if [ -d fonts ]; then
             cp -r fonts/* dist/${{ matrix.artifact_name }}/fonts/ 2>/dev/null || true
@@ -125,6 +126,7 @@ jobs:
             pyinstaller --name lfdata --onefile src/lfdata/__main__.py
             mkdir -p dist/lfdata-linux-arm64
             cp dist/lfdata dist/lfdata-linux-arm64/
+            cp video_config_example.yaml dist/lfdata-linux-arm64/
             mkdir -p dist/lfdata-linux-arm64/fonts
             if [ -d fonts ]; then
               cp -r fonts/* dist/lfdata-linux-arm64/fonts/ 2>/dev/null || true

@@ -57,6 +57,8 @@ there are, and how to actually use these videos.
 * **--no_pipe**: Create separate images and then use `ffmpeg` later to turn those into a video. Choose this if the
   streaming video creating doesn't work, although this is a bit slower (and puts a bunch of temporary files on your
   drive).
+* **--config**: Path of a config file, if you actually read the "customization"
+  section above.
 
 ## Video formats
 
@@ -67,9 +69,10 @@ This is the recommended way. Creates two separate videos, one for the overlay an
 #### Using in Premiere
 
 Put your actual footage on V1. Put the overlay in V2. Put the alpha video in V3.
-Add the `Track Matte` effect to V2. In its settings, set the matte channel to V3, and set the to ``.
+Add the `Track Matte Key` effect to V2. In its settings, set `Matte` to
+`Video 3`, and set `Composite Using` to `Matte Luma`.
 
-### webm
+### WebM
 
 This is a very space-efficient format, but has no native support in many applications, such as Premiere. (There is a
 webm plug-in, but it doesn't support alpha).

@@ -301,3 +301,79 @@ def test_main_state_interval_with_end(capsys) -> None:
         assert 'Game State at 2000 ms:' in captured.out
         assert 'Game State at 3000 ms:' in captured.out
         assert 'Game State at 4000 ms:' not in captured.out
+
+
+def test_main_config_video_out() -> None:
+    real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+    with patch('lfdata.video.VideoGenerator.generate') as mock_generate:
+        with patch.object(
+            sys,
+            'argv',
+            [
+                'lfdata',
+                '--input_tdf',
+                str(real_path),
+                '--config',
+                'test_config.yaml',
+                '--video_out',
+                'output.mp4',
+            ],
+        ):
+            main()
+            mock_generate.assert_called_once_with(
+                output_path='output.mp4',
+                config_path='test_config.yaml',
+                video_start_ms=0,
+                video_end_ms=None,
+                video_player=None,
+                fps=None,
+                use_pipe=True,
+                alpha_output_path=None,
+            )
+
+
+def test_main_config_image_at(tmp_path: Path) -> None:
+    real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+    with patch('lfdata.video.VideoGenerator._load_config') as mock_load_config:
+        mock_load_config.return_value = {
+            'resolution': [1920, 1080],
+            'fps': 60,
+        }
+        with patch.object(
+            sys,
+            'argv',
+            [
+                'lfdata',
+                '--input_tdf',
+                str(real_path),
+                '--config',
+                'test_config.yaml',
+                '--image-outdir',
+                str(tmp_path),
+                '--image-at',
+                '5000',
+            ],
+        ):
+            main()
+            mock_load_config.assert_called_with('test_config.yaml')
+
+
+def test_main_config_video_state_at() -> None:
+    real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+    with patch('lfdata.video.VideoGenerator._load_config') as mock_load_config:
+        mock_load_config.return_value = {}
+        with patch.object(
+            sys,
+            'argv',
+            [
+                'lfdata',
+                '--input_tdf',
+                str(real_path),
+                '--config',
+                'test_config.yaml',
+                '--video_state_at',
+                '5000',
+            ],
+        ):
+            main()
+            mock_load_config.assert_called_with('test_config.yaml')

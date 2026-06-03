@@ -168,6 +168,11 @@ def main() -> None:
             'write temporary PNG files to disk instead.'
         ),
     )
+    parser.add_argument(
+        '--config',
+        type=str,
+        help='Path to a YAML configuration file.',
+    )
 
     args = parser.parse_args()
 
@@ -226,9 +231,11 @@ def main() -> None:
             current_ms += interval_ms
 
     if args.video_state_at is not None:
-        from lfdata.video import VisualElementGenerator
+        from lfdata.video import VideoGenerator, VisualElementGenerator
 
-        hud_gen = VisualElementGenerator(game, args.video_player)
+        generator = VideoGenerator(game)
+        config = generator._load_config(args.config)
+        hud_gen = VisualElementGenerator(game, args.video_player, config)
         elements = hud_gen.generate_at(args.video_state_at)
 
         if args.video_player:
@@ -327,7 +334,7 @@ def main() -> None:
         from lfdata.video import VideoGenerator, VisualElementGenerator
 
         generator = VideoGenerator(game)
-        config = generator._load_config(None)
+        config = generator._load_config(args.config)
         if args.video_player:
             config['player_name'] = args.video_player
 
@@ -346,7 +353,7 @@ def main() -> None:
         from lfdata.video import VideoGenerator, VisualElementGenerator
 
         generator = VideoGenerator(game)
-        config = generator._load_config(None)
+        config = generator._load_config(args.config)
         if args.video_player is not None:
             config['player_name'] = args.video_player
 
@@ -376,7 +383,7 @@ def main() -> None:
         if args.video_out:
             generator.generate(
                 output_path=args.video_out,
-                config_path=None,
+                config_path=args.config,
                 video_start_ms=start_ms,
                 video_end_ms=args.video_end_ms,
                 video_player=args.video_player,
