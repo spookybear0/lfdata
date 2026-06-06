@@ -85,9 +85,12 @@ class VisualElementGenerator:
         self.entity_names = {e.entity_id: e.desc for e in game.entities}
 
         if config is None:
-            self.config = DEFAULT_CONFIG
+            self.config = DEFAULT_CONFIG.copy()
         else:
             self.config = _merge_configs(DEFAULT_CONFIG, config)
+
+        if self.player_name:
+            self.config['player_name'] = self.player_name
 
         self.snapshots: list[
             tuple[
@@ -123,6 +126,7 @@ class VisualElementGenerator:
         for entity in self.game.entities:
             if entity.type == 'player':
                 if _normalize_player_name(entity.desc) == norm_search:
+                    self.player_name = entity.desc
                     return entity.entity_id
         return None
 
@@ -361,6 +365,8 @@ class VisualElementGenerator:
                 last_trans_time_ms=last_trans_time_ms,
                 visual_rank_at_last_trans=visual_rank_at_last_trans,
             )
+            if event.event_type == '0101':
+                break
 
     def _precompute_replay(self) -> None:
         """Runs simulation once, caching snapshots and transition times."""
@@ -1087,6 +1093,14 @@ class VisualElementGenerator:
         if el_game_type:
             elements.append(el_game_type)
 
+        el_norm_game_type = self._create_ui_element(
+            'normalized_game_type',
+            text=f'Game Type: {self.game.normalized_game_type or ""}',
+            element_type='text',
+        )
+        if el_norm_game_type:
+            elements.append(el_norm_game_type)
+
         actual_duration_ms = self.game.duration
         if self.game_ended_at_ms is not None:
             actual_duration_ms = self.game_ended_at_ms
@@ -1528,12 +1542,21 @@ class VisualElementGenerator:
     def generate_at(self, time_ms: int) -> list[UIElement]:
         """Generates HUD elements at a specific millisecond timestamp.
 
+        Calculates the active user interface elements for the current game
+        state, including global, player-specific, and event-log elements.
+
         Args:
             time_ms: The millisecond timestamp.
 
         Returns:
             list[UIElement]: The list of active UI HUD elements.
         """
+        if (
+            self.game_ended_at_ms is not None
+            and time_ms > self.game_ended_at_ms
+        ):
+            time_ms = self.game_ended_at_ms
+
         players, teams = self._get_state_at(time_ms)
         elements: list[UIElement] = []
 

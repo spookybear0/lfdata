@@ -238,9 +238,9 @@ def main() -> None:
         hud_gen = VisualElementGenerator(game, args.video_player, config)
         elements = hud_gen.generate_at(args.video_state_at)
 
-        if args.video_player:
+        if hud_gen.player_name:
             print(
-                f'HUD Elements for player {args.video_player} '
+                f'HUD Elements for player {hud_gen.player_name} '
                 f'at {args.video_state_at} ms:'
             )
         else:

@@ -39,6 +39,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
             'align': 'right',
             'style': {'size': 14},
         },
+        'normalized_game_type': {
+            'enabled': False,
+            'x': 0.98,
+            'y': 0.96,
+            'align': 'right',
+            'style': {'size': 14},
+        },
         'time': {
             'enabled': True,
             'x': 0.98,

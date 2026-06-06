@@ -122,6 +122,11 @@ class TdfImporter:
         """
         if len(parts) >= 6:
             game.game_type = parts[2]
+            from lfdata.importer.normalizer import GameTypeNormalizer
+
+            game.normalized_game_type = GameTypeNormalizer().normalize(
+                game.game_type
+            )
             if len(parts) >= 7:
                 start_str = parts[4]
                 duration_str = parts[5]

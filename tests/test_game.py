@@ -32,6 +32,7 @@ def test_create_game() -> None:
         assert retrieved.game_id == 'test_game_123'
         assert retrieved.timestamp == now
         assert retrieved.game_type == 'SM5'
+        assert retrieved.normalized_game_type == 'SM5'
         assert retrieved.start == '20240114205710'
         assert retrieved.file_version == '2.005'
         assert retrieved.program_version == '8.503'

@@ -1147,12 +1147,60 @@ def test_player_name_normalization_matching() -> None:
 
     gen1 = VisualElementGenerator(game, ' anchovy!')
     assert gen1.entity_id == 'P123'
+    assert gen1.player_name == ' anchovy!'
 
     gen2 = VisualElementGenerator(game, 'anchovy')
     assert gen2.entity_id == 'P123'
+    assert gen2.player_name == ' anchovy!'
 
     gen3 = VisualElementGenerator(game, ' &nbsp;anchovy!')
     assert gen3.entity_id == 'P123'
+    assert gen3.player_name == ' anchovy!'
 
     gen4 = VisualElementGenerator(game, 'sardine')
     assert gen4.entity_id is None
+    assert gen4.player_name == 'sardine'
+
+
+def test_normalized_game_type_element() -> None:
+    from datetime import datetime
+    from lfdata.model import LFGame
+    from lfdata.video.generator import VisualElementGenerator
+
+    # 1. Default config: normalized_game_type is disabled
+    game = LFGame(
+        game_id='test_norm_ui',
+        timestamp=datetime.now(),
+        game_type='Space Marines 5 Tournament Edition',
+    )
+    gen_default = VisualElementGenerator(game, None)
+    elements_default = gen_default.generate_at(1000)
+
+    norm_el_default = next(
+        (
+            el
+            for el in elements_default
+            if el.element_type == 'text' and el.text == 'Game Type: SM5'
+        ),
+        None,
+    )
+    assert norm_el_default is None
+
+    # 2. Custom config: enable normalized_game_type
+    config = {'elements': {'normalized_game_type': {'enabled': True}}}
+    gen_enabled = VisualElementGenerator(game, None, config=config)
+    elements_enabled = gen_enabled.generate_at(1000)
+
+    norm_el_enabled = next(
+        (
+            el
+            for el in elements_enabled
+            if el.element_type == 'text' and el.text == 'Game Type: SM5'
+        ),
+        None,
+    )
+    assert norm_el_enabled is not None
+    assert norm_el_enabled.align == 'right'
+    assert norm_el_enabled.x == 0.98
+    assert norm_el_enabled.y == 0.96
+    assert norm_el_enabled.style.size == 14
