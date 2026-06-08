@@ -2,9 +2,14 @@
 
 ## Prerequisites
 
+* Grab a binary from the [releases page](https://github.com/EboMike/lfdata/releases).
+  Extract the contents wherever you want. You'll be running the tool in a command line
+  from within this directory.
 * Be sure to install ffmpeg. If you don't already have it, check out
   the [ffmpeg website](https://ffmpeg.org/).
-* Install any font you'd like to use.
+* Install any font you'd like to use. IMPORTANT: The default fonts are not included,
+  so you'll need to download them from the web, or choose different ones with the
+  configuration file.
 * Have the TDF file somewhere on your file system.
 
 ## Customizing (optional)
