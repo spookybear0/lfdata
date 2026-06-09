@@ -36,3 +36,7 @@ class UIElement:
     indicator_interval: int | None = None
     events_data: list[dict[str, any]] | None = None
     player_to_color: dict[str, str] | None = None
+    visible_start_ms: int = 0
+    visible_end_ms: int = 0
+    fade_in_ms: int = 0
+    fade_out_ms: int = 0

@@ -28,6 +28,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     'fade_out_time': 2.0,
     'fps': 60,
     'extra_footage_ms': 10000,
+    'pregame_delay_ms': 0,
     'player_name': None,
     'resolution': [1920, 1080],
     'animation': 'ease-in-out',

@@ -356,8 +356,9 @@ class VideoGenerator:
         if not self.game.events:
             return 0
 
+        pregame_delay_ms = config.get('pregame_delay_ms', 0)
         extra_footage_ms = config.get('extra_footage_ms', 10000)
-        return actual_duration_ms + extra_footage_ms
+        return actual_duration_ms + extra_footage_ms + pregame_delay_ms
 
     def generate(
         self,
@@ -369,6 +370,7 @@ class VideoGenerator:
         fps: int | None = None,
         use_pipe: bool = True,
         alpha_output_path: str | Path | None = None,
+        pregame_delay_ms: int | None = None,
     ) -> Path:
         """Generates a video file for the game replay.
 
@@ -395,6 +397,8 @@ class VideoGenerator:
         config = self._load_config(config_path)
         if video_player is not None:
             config['player_name'] = video_player
+        if pregame_delay_ms is not None:
+            config['pregame_delay_ms'] = pregame_delay_ms
 
         config_use_pipe = config.get('use_pipe', True)
         final_use_pipe = use_pipe and config_use_pipe
@@ -448,9 +452,11 @@ class VideoGenerator:
         Returns:
             dict[str, Any]: Loaded config dictionary.
         """
-        config = DEFAULT_CONFIG
+        import copy
+
+        base_config = copy.deepcopy(DEFAULT_CONFIG)
         if not config_path:
-            return config
+            return base_config
 
         import yaml
 
@@ -458,10 +464,10 @@ class VideoGenerator:
             with open(config_path, 'r', encoding='utf-8') as f:
                 loaded = yaml.safe_load(f)
                 if isinstance(loaded, dict):
-                    config = _merge_configs(DEFAULT_CONFIG, loaded)
+                    return _merge_configs(base_config, loaded)
         except Exception as e:
             print(f'Warning: failed to load config: {e}')
-        return config
+        return base_config
 
     def _format_duration(self, seconds: float) -> str:
         """Formats a duration in seconds to a human-readable string.
@@ -1037,6 +1043,8 @@ class VideoGenerator:
         bg_color = parse_color_with_alpha(bg_hex)
         img = Image.new('RGBA', (resolution[0], resolution[1]), bg_color)
 
+        game_time_ms = max(0, time_ms - config.get('pregame_delay_ms', 0))
+
         for el in elements:
             if el.element_type == 'scoreboard':
                 self._draw_scoreboard(img, el, config)
@@ -1045,7 +1053,7 @@ class VideoGenerator:
             elif el.element_type == 'counter':
                 self._draw_counter(img, el, config)
             elif el.element_type == 'event_scroller':
-                self._draw_event_scroller(img, el, time_ms, config)
+                self._draw_event_scroller(img, el, game_time_ms, config)
 
         self._draw_text_elements(img, elements, config)
 
@@ -1053,8 +1061,8 @@ class VideoGenerator:
         flash_alpha: float = 0.0
         nuke_duration_ms: int = config.get('nuke_flash_duration_ms', 250)
         for start_ms in hud_gen.nuke_flashes:
-            if start_ms <= time_ms < start_ms + nuke_duration_ms:
-                elapsed_ms: int = time_ms - start_ms
+            if start_ms <= game_time_ms < start_ms + nuke_duration_ms:
+                elapsed_ms: int = game_time_ms - start_ms
                 alpha: float = 1.0 - (elapsed_ms / nuke_duration_ms)
                 if alpha > flash_alpha:
                     flash_alpha = alpha
@@ -1062,8 +1070,8 @@ class VideoGenerator:
         missile_flash_alpha: float = 0.0
         missile_duration_ms: int = config.get('missile_flash_duration_ms', 130)
         for start_ms in hud_gen.missile_flashes_ms:
-            if start_ms <= time_ms < start_ms + missile_duration_ms:
-                elapsed_ms: int = time_ms - start_ms
+            if start_ms <= game_time_ms < start_ms + missile_duration_ms:
+                elapsed_ms: int = game_time_ms - start_ms
                 alpha: float = 1.0 - (elapsed_ms / missile_duration_ms)
                 if alpha > missile_flash_alpha:
                     missile_flash_alpha = alpha
@@ -1277,22 +1285,45 @@ class VideoGenerator:
         finally:
             temp_img.close()
 
-        for team in teams:
-            self._draw_team_table(
-                image=image,
-                team=team,
-                th=team_heights[team['team_index']],
-                x_start=x_start,
-                font=font,
-                bold_font=bold_font,
-                header_font=header_font,
-                header_h=header_h,
-                row_h=row_h,
-                stroke_width=stroke_width,
-                draw_background=draw_background,
-                draw_borders=draw_borders,
-                max_player_w=max_player_w,
-            )
+        overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
+        try:
+            for team in teams:
+                self._draw_team_table(
+                    image=overlay,
+                    team=team,
+                    th=team_heights[team['team_index']],
+                    x_start=x_start,
+                    font=font,
+                    bold_font=bold_font,
+                    header_font=header_font,
+                    header_h=header_h,
+                    row_h=row_h,
+                    stroke_width=stroke_width,
+                    draw_background=draw_background,
+                    draw_borders=draw_borders,
+                    max_player_w=max_player_w,
+                )
+            if el.alpha < 1.0:
+                r, g, b, a = overlay.split()
+                try:
+                    new_a = a.point(lambda p: int(p * el.alpha))
+                    try:
+                        overlay_faded = Image.merge('RGBA', (r, g, b, new_a))
+                        try:
+                            image.alpha_composite(overlay_faded)
+                        finally:
+                            overlay_faded.close()
+                    finally:
+                        new_a.close()
+                finally:
+                    r.close()
+                    g.close()
+                    b.close()
+                    a.close()
+            else:
+                image.alpha_composite(overlay)
+        finally:
+            overlay.close()
 
     def _calculate_team_colors(
         self, team: dict[str, Any]
@@ -1864,18 +1895,49 @@ class VideoGenerator:
                 split_x = int(W * progress)
 
                 combined = Image.new('RGBA', (W, H))
-                if split_x > 0:
-                    left_part = self._downtime_empty_resized.crop(
-                        (0, 0, split_x, H)
-                    )
-                    combined.paste(left_part, (0, 0))
-                if split_x < W:
-                    right_part = self._downtime_full_resized.crop(
-                        (split_x, 0, W, H)
-                    )
-                    combined.paste(right_part, (split_x, 0))
+                try:
+                    if split_x > 0:
+                        left_part = self._downtime_empty_resized.crop(
+                            (0, 0, split_x, H)
+                        )
+                        try:
+                            combined.paste(left_part, (0, 0))
+                        finally:
+                            left_part.close()
+                    if split_x < W:
+                        right_part = self._downtime_full_resized.crop(
+                            (split_x, 0, W, H)
+                        )
+                        try:
+                            combined.paste(right_part, (split_x, 0))
+                        finally:
+                            right_part.close()
 
-                image.alpha_composite(combined, dest=(x1, y1))
+                    if el.alpha < 1.0:
+                        r, g, b, a = combined.split()
+                        try:
+                            new_a = a.point(lambda p: int(p * el.alpha))
+                            try:
+                                combined_faded = Image.merge(
+                                    'RGBA', (r, g, b, new_a)
+                                )
+                                try:
+                                    image.alpha_composite(
+                                        combined_faded, dest=(x1, y1)
+                                    )
+                                finally:
+                                    combined_faded.close()
+                            finally:
+                                new_a.close()
+                        finally:
+                            r.close()
+                            g.close()
+                            b.close()
+                            a.close()
+                    else:
+                        image.alpha_composite(combined, dest=(x1, y1))
+                finally:
+                    combined.close()
             except Exception as e:
                 print(f'Warning: failed to composite downtime bar: {e}')
 
@@ -2242,7 +2304,25 @@ class VideoGenerator:
                 stroke_width=max(1, int(pixel_size * 0.05)),
                 stroke_fill=stroke_color,
             )
-            image.alpha_composite(overlay)
+            if el.alpha < 1.0:
+                r, g, b, a = overlay.split()
+                try:
+                    new_a = a.point(lambda p: int(p * el.alpha))
+                    try:
+                        overlay_faded = Image.merge('RGBA', (r, g, b, new_a))
+                        try:
+                            image.alpha_composite(overlay_faded)
+                        finally:
+                            overlay_faded.close()
+                    finally:
+                        new_a.close()
+                finally:
+                    r.close()
+                    g.close()
+                    b.close()
+                    a.close()
+            else:
+                image.alpha_composite(overlay)
         finally:
             overlay.close()
 

@@ -926,6 +926,34 @@ class VisualElementGenerator:
 
         text_val = text if text is not None else el_config.get('text')
 
+        pregame_delay = self.config.get('pregame_delay_ms', 0)
+        video_end_ms = self.config.get('video_end_ms')
+        if video_end_ms is None:
+            actual_duration_ms = self.game.duration
+            if self.game_ended_at_ms is not None:
+                actual_duration_ms = self.game_ended_at_ms
+            if actual_duration_ms is None:
+                actual_duration_ms = 0
+            extra_footage_ms = self.config.get('extra_footage_ms', 10000)
+            video_end_ms = actual_duration_ms + extra_footage_ms + pregame_delay
+
+        visible_start = kwargs_copy.pop(
+            'visible_start_ms',
+            el_config.get('visible_start_ms', pregame_delay),
+        )
+        visible_end = kwargs_copy.pop(
+            'visible_end_ms',
+            el_config.get('visible_end_ms', video_end_ms),
+        )
+        fade_in = kwargs_copy.pop(
+            'fade_in_ms',
+            el_config.get('fade_in_ms', 0),
+        )
+        fade_out = kwargs_copy.pop(
+            'fade_out_ms',
+            el_config.get('fade_out_ms', 0),
+        )
+
         return UIElement(
             element_type=elem_type,
             position=pos_compat,
@@ -935,6 +963,10 @@ class VisualElementGenerator:
             y=y,
             align=align,
             indicator_interval=indicator_interval,
+            visible_start_ms=visible_start,
+            visible_end_ms=visible_end,
+            fade_in_ms=fade_in,
+            fade_out_ms=fade_out,
             **kwargs_copy,
         )
 
@@ -1553,23 +1585,32 @@ class VisualElementGenerator:
         Returns:
             list[UIElement]: The list of active UI HUD elements.
         """
+        pregame_delay_ms = self.config.get('pregame_delay_ms', 0)
+        game_time_ms = max(0, time_ms - pregame_delay_ms)
+
         if (
             self.game_ended_at_ms is not None
-            and time_ms > self.game_ended_at_ms
+            and game_time_ms > self.game_ended_at_ms
         ):
-            time_ms = self.game_ended_at_ms
+            game_time_ms = self.game_ended_at_ms
 
-        players, teams = self._get_state_at(time_ms)
+        players, teams = self._get_state_at(game_time_ms)
         elements: list[UIElement] = []
 
         self._add_global_hud_elements(
-            elements=elements, teams=teams, players=players, time_ms=time_ms
+            elements=elements,
+            teams=teams,
+            players=players,
+            time_ms=game_time_ms,
         )
         self._add_player_hud_elements(
-            elements=elements, players=players, time_ms=time_ms
+            elements=elements, players=players, time_ms=game_time_ms
         )
         self._add_event_hud_elements(
-            elements=elements, players=players, teams=teams, time_ms=time_ms
+            elements=elements,
+            players=players,
+            teams=teams,
+            time_ms=game_time_ms,
         )
 
         # Apply camera shake
@@ -1577,8 +1618,8 @@ class VisualElementGenerator:
         for shake in self.camera_shakes:
             start = shake['start_ms']
             duration = shake['duration_ms']
-            if start <= time_ms < start + duration:
-                elapsed = time_ms - start
+            if start <= game_time_ms < start + duration:
+                elapsed = game_time_ms - start
                 factor = 1.0 - (elapsed / duration)
                 total_strength += shake['strength'] * factor
 
@@ -1590,6 +1631,24 @@ class VisualElementGenerator:
                     el.x += dx
                 if el.y is not None:
                     el.y += dy
+
+        # Update alpha of each element based on visibility and fading
+        for el in elements:
+            if time_ms < el.visible_start_ms or time_ms >= el.visible_end_ms:
+                el.alpha = 0.0
+            else:
+                multiplier = 1.0
+                if (
+                    el.fade_in_ms > 0
+                    and time_ms < el.visible_start_ms + el.fade_in_ms
+                ):
+                    multiplier = (time_ms - el.visible_start_ms) / el.fade_in_ms
+                elif (
+                    el.fade_out_ms > 0
+                    and time_ms >= el.visible_end_ms - el.fade_out_ms
+                ):
+                    multiplier = (el.visible_end_ms - time_ms) / el.fade_out_ms
+                el.alpha *= max(0.0, min(1.0, multiplier))
 
         return elements
 

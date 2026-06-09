@@ -134,6 +134,7 @@ def test_main_video_out() -> None:
                 fps=None,
                 use_pipe=True,
                 alpha_output_path=None,
+                pregame_delay_ms=None,
             )
 
 
@@ -169,6 +170,7 @@ def test_main_video_out_fps() -> None:
                 fps=30,
                 use_pipe=True,
                 alpha_output_path=None,
+                pregame_delay_ms=None,
             )
 
 
@@ -203,6 +205,7 @@ def test_main_video_out_no_pipe() -> None:
                 fps=None,
                 use_pipe=False,
                 alpha_output_path=None,
+                pregame_delay_ms=None,
             )
 
 
@@ -249,6 +252,7 @@ def test_main_alpha_video_out_generation() -> None:
                 fps=None,
                 use_pipe=True,
                 alpha_output_path='alpha.mp4',
+                pregame_delay_ms=None,
             )
 
 
@@ -329,6 +333,7 @@ def test_main_config_video_out() -> None:
                 fps=None,
                 use_pipe=True,
                 alpha_output_path=None,
+                pregame_delay_ms=None,
             )
 
 
@@ -377,3 +382,33 @@ def test_main_config_video_state_at() -> None:
         ):
             main()
             mock_load_config.assert_called_with('test_config.yaml')
+
+
+def test_main_pregame_delay() -> None:
+    real_path = Path(__file__).parent.parent / 'assets' / 'sm5_sanitized.tdf'
+    with patch('lfdata.video.VideoGenerator.generate') as mock_generate:
+        with patch.object(
+            sys,
+            'argv',
+            [
+                'lfdata',
+                '--input_tdf',
+                str(real_path),
+                '--video_out',
+                'output.mp4',
+                '--pregame_delay_ms',
+                '5000',
+            ],
+        ):
+            main()
+            mock_generate.assert_called_once_with(
+                output_path='output.mp4',
+                config_path=None,
+                video_start_ms=0,
+                video_end_ms=None,
+                video_player=None,
+                fps=None,
+                use_pipe=True,
+                alpha_output_path=None,
+                pregame_delay_ms=5000,
+            )

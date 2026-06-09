@@ -173,6 +173,11 @@ def main() -> None:
         type=str,
         help='Path to a YAML configuration file.',
     )
+    parser.add_argument(
+        '--pregame_delay_ms',
+        type=int,
+        help='Pregame delay in milliseconds.',
+    )
 
     args = parser.parse_args()
 
@@ -235,6 +240,8 @@ def main() -> None:
 
         generator = VideoGenerator(game)
         config = generator._load_config(args.config)
+        if args.pregame_delay_ms is not None:
+            config['pregame_delay_ms'] = args.pregame_delay_ms
         hud_gen = VisualElementGenerator(game, args.video_player, config)
         elements = hud_gen.generate_at(args.video_state_at)
 
@@ -337,6 +344,8 @@ def main() -> None:
         config = generator._load_config(args.config)
         if args.video_player:
             config['player_name'] = args.video_player
+        if args.pregame_delay_ms is not None:
+            config['pregame_delay_ms'] = args.pregame_delay_ms
 
         hud_gen = VisualElementGenerator(game, args.video_player, config)
         elements = hud_gen.generate_at(args.image_at)
@@ -356,6 +365,8 @@ def main() -> None:
         config = generator._load_config(args.config)
         if args.video_player is not None:
             config['player_name'] = args.video_player
+        if args.pregame_delay_ms is not None:
+            config['pregame_delay_ms'] = args.pregame_delay_ms
 
         hud_gen = VisualElementGenerator(game, args.video_player, config)
 
@@ -371,8 +382,11 @@ def main() -> None:
             if not game.events:
                 end_ms = 0
             else:
+                pregame_delay_ms = config.get('pregame_delay_ms', 0)
                 extra_footage_ms = config.get('extra_footage_ms', 10000)
-                end_ms = actual_duration_ms + extra_footage_ms
+                end_ms = (
+                    actual_duration_ms + extra_footage_ms + pregame_delay_ms
+                )
 
         start_ms = args.video_start_ms
         fps = args.fps if args.fps is not None else config.get('fps', 60)
@@ -390,6 +404,7 @@ def main() -> None:
                 fps=args.fps,
                 use_pipe=not args.no_pipe,
                 alpha_output_path=args.alpha_video_out,
+                pregame_delay_ms=args.pregame_delay_ms,
             )
         else:
             generator._generate_frames(
