@@ -27,6 +27,9 @@ dependencies = [
     "jinja2",
 ]
 
+[project.scripts]
+lfdata = "lfdata.__main__:main"
+lfdata_ui = "lfdata.ui.__main__:main"
 
 [project.optional-dependencies]
 dev = [
