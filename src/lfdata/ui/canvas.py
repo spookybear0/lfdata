@@ -13,6 +13,7 @@ class LayoutCanvas(tk.Canvas):
         parent: tk.Widget,
         config_manager: UIConfigManager,
         on_select_callback: Callable[[str | None], None],
+        on_update_callback: Callable[[], None] | None = None,
     ) -> None:
         """Initializes the layout canvas.
 
@@ -20,6 +21,7 @@ class LayoutCanvas(tk.Canvas):
             parent: The parent tkinter widget.
             config_manager: The configuration manager instance.
             on_select_callback: Callback triggered when selection changes.
+            on_update_callback: Callback triggered when element changes.
         """
         super().__init__(
             parent,
@@ -31,6 +33,7 @@ class LayoutCanvas(tk.Canvas):
         )
         self.config_manager = config_manager
         self.on_select = on_select_callback
+        self.on_update = on_update_callback
         self.selected_element: str | None = None
 
         self.width = 640
@@ -262,4 +265,7 @@ class LayoutCanvas(tk.Canvas):
         Args:
             event: The mouse release event.
         """
+        was_dragging = self._drag_mode is not None
         self._drag_mode = None
+        if was_dragging and self.on_update:
+            self.on_update()

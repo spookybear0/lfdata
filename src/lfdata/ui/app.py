@@ -81,6 +81,7 @@ class LFDataUIApp(tk.Tk):
             canvas_container,
             self.config_manager,
             on_select_callback=self._on_element_selected,
+            on_update_callback=self._on_properties_updated,
         )
         self.canvas.pack(fill='both', expand=True, padx=5, pady=5)
 
@@ -276,6 +277,7 @@ class LFDataUIApp(tk.Tk):
     def _on_properties_updated(self) -> None:
         """Updates layout preview when forms change."""
         self.canvas.refresh_elements()
+        self.preview.update_preview()
 
     def _on_global_setting_changed(self) -> None:
         """Applies FPS and Resolution edits back to config."""

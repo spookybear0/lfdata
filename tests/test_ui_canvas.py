@@ -188,3 +188,28 @@ def test_canvas_drag_resize(
     assert extents is not None
     assert extents[0] == pytest.approx(0.25)
     assert extents[1] == pytest.approx(0.15)
+
+
+def test_canvas_update_callback_on_release(
+    mock_root: MagicMock, manager: UIConfigManager
+) -> None:
+    """Tests that the update callback is invoked on release after dragging."""
+    update_called = False
+
+    def on_update() -> None:
+        nonlocal update_called
+        update_called = True
+
+    canvas = LayoutCanvas(
+        mock_root, manager, lambda name: None, on_update_callback=on_update
+    )
+    # Test release without drag_mode does not trigger
+    canvas._drag_mode = None
+    canvas._on_release(DummyEvent(0, 0))
+    assert not update_called
+
+    # Test release with drag_mode triggers
+    canvas._drag_mode = 'move'
+    canvas._on_release(DummyEvent(0, 0))
+    assert update_called
+    assert canvas._drag_mode is None

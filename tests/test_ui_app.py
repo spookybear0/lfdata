@@ -301,3 +301,13 @@ def test_app_open_config(mock_dialog: MagicMock) -> None:
 
         if os.path.exists(temp_name):
             os.remove(temp_name)
+
+
+def test_app_properties_updated_refresh_preview() -> None:
+    """Tests that modifying properties triggers an image preview update."""
+    app = LFDataUIApp()
+    app.preview = MagicMock()
+
+    app._on_properties_updated()
+
+    assert app.preview.update_preview.called

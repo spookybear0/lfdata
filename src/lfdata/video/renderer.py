@@ -2063,10 +2063,39 @@ class VideoGenerator:
                 temp_img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
                 try:
                     temp_draw = ImageDraw.Draw(temp_img)
-                    resolved_segments = []
-                    total_width = 0.0
+
+                    # Pre-pass to determine text vertical bounds
                     min_y = 0.0
                     max_y = float(pixel_size)
+                    for seg in segments:
+                        if seg['type'] == 'text':
+                            t_str = seg['text']
+                            t_bbox = temp_draw.textbbox(
+                                (0, 0), t_str, font=font, anchor='la'
+                            )
+                            if t_bbox[1] < min_y:
+                                min_y = t_bbox[1]
+                            if t_bbox[3] > max_y:
+                                max_y = t_bbox[3]
+                        elif seg['type'] == 'image':
+                            img_path = seg['path']
+                            if not img_path.exists():
+                                fallback_text = f'[img:{seg["name"]}]'
+                                t_bbox = temp_draw.textbbox(
+                                    (0, 0),
+                                    fallback_text,
+                                    font=font,
+                                    anchor='la',
+                                )
+                                if t_bbox[1] < min_y:
+                                    min_y = t_bbox[1]
+                                if t_bbox[3] > max_y:
+                                    max_y = t_bbox[3]
+
+                    line_h = max_y - min_y
+
+                    resolved_segments = []
+                    total_width = 0.0
 
                     for seg in segments:
                         if seg['type'] == 'text':
@@ -2086,30 +2115,36 @@ class VideoGenerator:
                                 }
                             )
                             total_width += w
-                            if t_bbox[1] < min_y:
-                                min_y = t_bbox[1]
-                            if t_bbox[3] > max_y:
-                                max_y = t_bbox[3]
                         elif seg['type'] == 'image':
                             img_path = seg['path']
                             if img_path.exists():
                                 try:
                                     with Image.open(img_path) as raw_seg_img:
-                                        img_w, img_h = raw_seg_img.size
+                                        img_rgba = raw_seg_img.convert('RGBA')
+                                        bbox = img_rgba.getbbox()
+                                        if bbox:
+                                            img_w = bbox[2] - bbox[0]
+                                            img_h = bbox[3] - bbox[1]
+                                        else:
+                                            img_w, img_h = img_rgba.size
                                         aspect = img_w / img_h
-                                        w = pixel_size * aspect
+                                        # Use entire height of the text (line_h)
+                                        w = line_h * aspect
                                         resolved_segments.append(
                                             {
                                                 'type': 'image',
                                                 'path': img_path,
                                                 'width': w,
-                                                'height': pixel_size,
+                                                'height': line_h,
+                                                'bbox': bbox,
                                             }
                                         )
                                         total_width += w
+                                        img_rgba.close()
                                 except Exception as e:
                                     print(
-                                        f'Warning: failed to open image segment {img_path}: {e}'
+                                        'Warning: failed to open image '
+                                        f'segment {img_path}: {e}'
                                     )
                             else:
                                 # Fallback if image file doesn't exist
@@ -2134,10 +2169,6 @@ class VideoGenerator:
                                     }
                                 )
                                 total_width += w
-                                if t_bbox[1] < min_y:
-                                    min_y = t_bbox[1]
-                                if t_bbox[3] > max_y:
-                                    max_y = t_bbox[3]
                 finally:
                     temp_img.close()
 
@@ -2187,16 +2218,28 @@ class VideoGenerator:
                         seg_x += r_seg['width']
                     elif r_seg['type'] == 'image':
                         draw_x = seg_x + margin
-                        draw_y = -min_y + margin
+                        draw_y = margin + (line_h - r_seg['height']) / 2
                         try:
                             with Image.open(r_seg['path']) as raw_seg_img:
                                 target_w = int(r_seg['width'])
                                 target_h = int(r_seg['height'])
                                 if target_w > 0 and target_h > 0:
-                                    resized_seg = raw_seg_img.resize(
-                                        (target_w, target_h),
-                                        Image.Resampling.LANCZOS,
-                                    ).convert('RGBA')
+                                    img_rgba = raw_seg_img.convert('RGBA')
+                                    bbox = r_seg.get('bbox')
+                                    if bbox:
+                                        cropped = img_rgba.crop(bbox)
+                                    else:
+                                        cropped = img_rgba
+
+                                    try:
+                                        resized_seg = cropped.resize(
+                                            (target_w, target_h),
+                                            Image.Resampling.LANCZOS,
+                                        )
+                                    finally:
+                                        if bbox:
+                                            cropped.close()
+                                        img_rgba.close()
 
                                     # Handle alpha fading
                                     if el.alpha < 1.0:

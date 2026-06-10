@@ -1492,6 +1492,7 @@ def test_embedded_images_rendering(tmp_path) -> None:
     from PIL import Image
     from lfdata.video.element import UIElement, UIElementStyle
     from lfdata.video.renderer import VideoGenerator
+    from unittest.mock import patch
 
     # Create a dummy image in assets folder
     asset_dir = Path('assets')
@@ -1514,8 +1515,24 @@ def test_embedded_images_rendering(tmp_path) -> None:
             style=UIElementStyle(size=20, color='#ffffffff'),
         )
 
-        # Draw the text element
-        vg._draw_text_elements(img, [el], {})
+        resize_calls = []
+        original_resize = Image.Image.resize
+
+        def mock_resize(self, size, *args, **kwargs):
+            resize_calls.append(size)
+            return original_resize(self, size, *args, **kwargs)
+
+        # Draw the text element and capture resize parameters
+        with patch.object(Image.Image, 'resize', mock_resize):
+            vg._draw_text_elements(img, [el], {})
+
+        assert len(resize_calls) > 0
+        target_w, target_h = resize_calls[0]
+        # For font size 20 on 600px height, the pixel size is 15
+        assert target_h >= 15
+        # Aspect ratio of the dummy image is 20 / 10 = 2.0
+        # So width should be 2.0 * height
+        assert target_w == target_h * 2
 
         # Test fallback for missing image
         el_fallback = UIElement(
@@ -1529,5 +1546,58 @@ def test_embedded_images_rendering(tmp_path) -> None:
 
     finally:
         # Cleanup dummy asset
+        if dummy_asset.exists():
+            dummy_asset.unlink()
+
+
+def test_embedded_images_rendering_transparency_cropping(tmp_path) -> None:
+    """Tests that transparent padding in embedded images is cropped out."""
+    from pathlib import Path
+    from PIL import Image, ImageDraw
+    from lfdata.video.element import UIElement, UIElementStyle
+    from lfdata.video.renderer import VideoGenerator
+    from unittest.mock import patch
+
+    # Create dummy asset dir and a dummy image with transparent borders
+    asset_dir = Path('assets')
+    asset_dir.mkdir(exist_ok=True)
+    dummy_asset = asset_dir / 'test_padded.png'
+
+    # 30x20 image, entirely transparent
+    img_padded = Image.new('RGBA', (30, 20), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img_padded)
+    # Draw a 10x10 solid red square (non-transparent area)
+    draw.rectangle([10, 5, 20, 15], fill='#FF0000')
+    img_padded.save(dummy_asset)
+
+    try:
+        game = LFGame(game_id='test_padded_img', game_type='SM5')
+        vg = VideoGenerator(game)
+
+        img = Image.new('RGBA', (800, 600), (0, 0, 0, 0))
+        el = UIElement(
+            element_type='text',
+            x=0.5,
+            y=0.5,
+            text='Padded: [img:test_padded.png]',
+            style=UIElementStyle(size=20, color='#ffffffff'),
+        )
+
+        resize_calls = []
+        original_resize = Image.Image.resize
+
+        def mock_resize(self, size, *args, **kwargs):
+            resize_calls.append(size)
+            return original_resize(self, size, *args, **kwargs)
+
+        with patch.object(Image.Image, 'resize', mock_resize):
+            vg._draw_text_elements(img, [el], {})
+
+        assert len(resize_calls) > 0
+        target_w, target_h = resize_calls[0]
+        # Aspect ratio of the non-transparent bbox is 1.0 (10x10 square)
+        # So width should equal height, confirming transparent margins were cropped
+        assert target_w == target_h
+    finally:
         if dummy_asset.exists():
             dummy_asset.unlink()
