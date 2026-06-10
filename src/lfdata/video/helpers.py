@@ -438,3 +438,191 @@ def get_visual_rank(
             + (last_trans.ranking - last_trans.visual_rank) * p_anim
         )
     return float(last_trans.ranking)
+
+
+def _interpolate_values(val_start: Any, val_end: Any, p_anim: float) -> Any:
+    """Interpolates between two values or value pairs.
+
+    Uses the animated progress fraction to calculate the intermediate value.
+    If the values are coordinate lists or tuples, interpolates both components.
+
+    Args:
+        val_start: The starting value (number or coordinate pair).
+        val_end: The ending value (number or coordinate pair).
+        p_anim: The animated progress fraction (0.0 to 1.0).
+
+    Returns:
+        Any: The interpolated value or value pair.
+    """
+    if isinstance(val_start, (list, tuple)) and isinstance(
+        val_end, (list, tuple)
+    ):
+        if len(val_start) >= 2 and len(val_end) >= 2:
+            x_start, y_start = val_start[0], val_start[1]
+            x_end, y_end = val_end[0], val_end[1]
+            return [
+                x_start + (x_end - x_start) * p_anim,
+                y_start + (y_end - y_start) * p_anim,
+            ]
+
+    try:
+        return val_start + (val_end - val_start) * p_anim
+    except (TypeError, ValueError):
+        return val_start
+
+
+def resolve_animated_value(
+    config_val: Any,
+    time_ms: int,
+    pregame_delay_ms: int = 0,
+    game_duration_ms: int = 0,
+) -> Any:
+    """Resolves a configured value at a specific timestamp.
+
+    If the value defines keyframes, interpolates the value based on the current
+    timestamp and the keyframes' references and values.
+
+    Args:
+        config_val: The configuration value (direct value or keyframe dict).
+        time_ms: The current time in milliseconds since the start of the video.
+        pregame_delay_ms: Pregame delay in milliseconds.
+        game_duration_ms: The duration of the game in milliseconds.
+
+    Returns:
+        Any: The resolved value or value pair at the specified timestamp.
+    """
+    if not isinstance(config_val, dict) or 'keyframes' not in config_val:
+        return config_val
+
+    keyframes = config_val['keyframes']
+    if not keyframes:
+        return None
+
+    # Resolve each keyframe's time to absolute video time in ms
+    resolved_keyframes = []
+    for kf in keyframes:
+        if not isinstance(kf, dict):
+            continue
+        kf_time_raw = kf.get('time', 0)
+        try:
+            kf_time_ms = float(kf_time_raw)
+        except (TypeError, ValueError):
+            kf_time_ms = 0.0
+
+        ref = kf.get('reference', kf.get('time_reference', 'start_of_video'))
+        if not isinstance(ref, str):
+            ref = 'start_of_video'
+        ref_clean = ref.strip().lower().replace(' ', '_')
+
+        if ref_clean in ('start_of_game', 'game_start'):
+            abs_time_ms = pregame_delay_ms + kf_time_ms
+        elif ref_clean in ('end_of_game', 'game_end'):
+            abs_time_ms = pregame_delay_ms + game_duration_ms + kf_time_ms
+        else:
+            abs_time_ms = kf_time_ms
+
+        resolved_keyframes.append(
+            {
+                'abs_time_ms': abs_time_ms,
+                'value': kf.get('value'),
+                'interpolator': kf.get('interpolator', 'linear'),
+            }
+        )
+
+    # Sort keyframes by absolute video time
+    resolved_keyframes.sort(key=lambda k: k['abs_time_ms'])
+
+    if not resolved_keyframes:
+        return None
+
+    # Return boundary values if time is outside keyframe range
+    if time_ms <= resolved_keyframes[0]['abs_time_ms']:
+        return resolved_keyframes[0]['value']
+    if time_ms >= resolved_keyframes[-1]['abs_time_ms']:
+        return resolved_keyframes[-1]['value']
+
+    # Interpolate between matching keyframes
+    for i in range(len(resolved_keyframes) - 1):
+        kf_start = resolved_keyframes[i]
+        kf_end = resolved_keyframes[i + 1]
+        t_start_ms = kf_start['abs_time_ms']
+        t_end_ms = kf_end['abs_time_ms']
+
+        if t_start_ms <= time_ms <= t_end_ms:
+            if t_end_ms == t_start_ms:
+                return kf_end['value']
+
+            p = (time_ms - t_start_ms) / (t_end_ms - t_start_ms)
+            p_anim = apply_animation(p, kf_start['interpolator'])
+            return _interpolate_values(
+                kf_start['value'], kf_end['value'], p_anim
+            )
+
+    return None
+
+
+def resolve_config_dict(
+    config_dict: dict[str, Any],
+    time_ms: int,
+    pregame_delay_ms: int = 0,
+    game_duration_ms: int = 0,
+) -> dict[str, Any]:
+    """Recursively resolves all values in a config dictionary at a timestamp.
+
+    Iterates through the dictionary structure and resolves any animated values
+    defined by keyframes.
+
+    Args:
+        config_dict: The configuration dictionary to resolve.
+        time_ms: The current time in milliseconds since the start of the video.
+        pregame_delay_ms: Pregame delay in milliseconds.
+        game_duration_ms: The duration of the game in milliseconds.
+
+    Returns:
+        dict[str, Any]: A new dictionary with resolved values.
+    """
+    resolved: dict[str, Any] = {}
+    for k, v in config_dict.items():
+        if isinstance(v, dict):
+            if 'keyframes' in v:
+                resolved[k] = resolve_animated_value(
+                    v,
+                    time_ms,
+                    pregame_delay_ms=pregame_delay_ms,
+                    game_duration_ms=game_duration_ms,
+                )
+            else:
+                resolved[k] = resolve_config_dict(
+                    v,
+                    time_ms,
+                    pregame_delay_ms=pregame_delay_ms,
+                    game_duration_ms=game_duration_ms,
+                )
+        elif isinstance(v, list):
+            resolved_list = []
+            for item in v:
+                if isinstance(item, dict):
+                    if 'keyframes' in item:
+                        resolved_list.append(
+                            resolve_animated_value(
+                                item,
+                                time_ms,
+                                pregame_delay_ms=pregame_delay_ms,
+                                game_duration_ms=game_duration_ms,
+                            )
+                        )
+                    else:
+                        resolved_list.append(
+                            resolve_config_dict(
+                                item,
+                                time_ms,
+                                pregame_delay_ms=pregame_delay_ms,
+                                game_duration_ms=game_duration_ms,
+                            )
+                        )
+                else:
+                    resolved_list.append(item)
+            resolved[k] = resolved_list
+        else:
+            resolved[k] = v
+    return resolved

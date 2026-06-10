@@ -21,6 +21,8 @@ from lfdata.video.helpers import (
     apply_animation,
     hex_to_rgb,
     parse_color_with_alpha,
+    resolve_animated_value,
+    resolve_config_dict,
 )
 
 IMAGE_TAG_PATTERN = re.compile(r'\[img:([^\]]+)\]')
@@ -1040,29 +1042,58 @@ class VideoGenerator:
         Returns:
             Image.Image: The rendered frame image.
         """
-        resolution = config.get('resolution', [1920, 1080])
-        bg_hex = config.get('background_color', '#00000000')
+        pregame_delay_ms = config.get('pregame_delay_ms', 0)
+        if (
+            isinstance(pregame_delay_ms, dict)
+            and 'keyframes' in pregame_delay_ms
+        ):
+            pregame_delay_ms = resolve_animated_value(
+                pregame_delay_ms,
+                time_ms,
+                pregame_delay_ms=0,
+                game_duration_ms=hud_gen.game.duration or 0,
+            )
+
+        actual_duration_ms = hud_gen.game.duration
+        if hud_gen.game_ended_at_ms is not None:
+            actual_duration_ms = hud_gen.game_ended_at_ms
+        if actual_duration_ms is None:
+            actual_duration_ms = 0
+
+        resolved_config = resolve_config_dict(
+            config,
+            time_ms,
+            pregame_delay_ms=pregame_delay_ms,
+            game_duration_ms=actual_duration_ms,
+        )
+
+        resolution = resolved_config.get('resolution', [1920, 1080])
+        bg_hex = resolved_config.get('background_color', '#00000000')
 
         bg_color = parse_color_with_alpha(bg_hex)
         img = Image.new('RGBA', (resolution[0], resolution[1]), bg_color)
 
-        game_time_ms = max(0, time_ms - config.get('pregame_delay_ms', 0))
+        game_time_ms = max(0, time_ms - pregame_delay_ms)
 
         for el in elements:
             if el.element_type == 'scoreboard':
-                self._draw_scoreboard(img, el, config)
+                self._draw_scoreboard(img, el, resolved_config)
             elif el.element_type == 'downtime_bar':
                 self._draw_downtime_bar(img, el)
             elif el.element_type == 'counter':
-                self._draw_counter(img, el, config)
+                self._draw_counter(img, el, resolved_config)
             elif el.element_type == 'event_scroller':
-                self._draw_event_scroller(img, el, game_time_ms, config)
+                self._draw_event_scroller(
+                    img, el, game_time_ms, resolved_config
+                )
 
-        self._draw_text_elements(img, elements, config)
+        self._draw_text_elements(img, elements, resolved_config)
 
         # Draw screen flash overlays (nukes and player missiled)
         flash_alpha: float = 0.0
-        nuke_duration_ms: int = config.get('nuke_flash_duration_ms', 250)
+        nuke_duration_ms: int = resolved_config.get(
+            'nuke_flash_duration_ms', 250
+        )
         for start_ms in hud_gen.nuke_flashes:
             if start_ms <= game_time_ms < start_ms + nuke_duration_ms:
                 elapsed_ms: int = game_time_ms - start_ms
@@ -1071,7 +1102,9 @@ class VideoGenerator:
                     flash_alpha = alpha
 
         missile_flash_alpha: float = 0.0
-        missile_duration_ms: int = config.get('missile_flash_duration_ms', 130)
+        missile_duration_ms: int = resolved_config.get(
+            'missile_flash_duration_ms', 130
+        )
         for start_ms in hud_gen.missile_flashes_ms:
             if start_ms <= game_time_ms < start_ms + missile_duration_ms:
                 elapsed_ms: int = game_time_ms - start_ms

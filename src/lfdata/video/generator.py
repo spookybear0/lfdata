@@ -20,6 +20,8 @@ from lfdata.video.helpers import (
     apply_animation,
     get_fade_alpha,
     get_visual_rank,
+    resolve_animated_value,
+    resolve_config_dict,
 )
 
 
@@ -110,6 +112,7 @@ class VisualElementGenerator:
         self._last_medic_resup_by_me: dict[str, int] = {}
         self.team_transitions: dict[int, list[LFTeamTransition]] = {}
         self.game_ended_at_ms: int | None = None
+        self.current_time_ms: int = 0
 
         self._jinja_env = jinja2.Environment()
         self._jinja_cache: dict[
@@ -1715,76 +1718,114 @@ class VisualElementGenerator:
         Returns:
             list[UIElement]: The list of active UI HUD elements.
         """
-        pregame_delay_ms = self.config.get('pregame_delay_ms', 0)
-        game_time_ms = max(0, time_ms - pregame_delay_ms)
+        self.current_time_ms = time_ms
+        orig_config = self.config
 
+        # Get pregame delay and game duration to resolve animated properties
+        pregame_delay_ms = orig_config.get('pregame_delay_ms', 0)
         if (
-            self.game_ended_at_ms is not None
-            and game_time_ms > self.game_ended_at_ms
+            isinstance(pregame_delay_ms, dict)
+            and 'keyframes' in pregame_delay_ms
         ):
-            game_time_ms = self.game_ended_at_ms
+            pregame_delay_ms = resolve_animated_value(
+                pregame_delay_ms,
+                time_ms,
+                pregame_delay_ms=0,
+                game_duration_ms=self.game.duration or 0,
+            )
 
-        players, teams = self._get_state_at(game_time_ms)
-        self.current_variables = self._build_variables_blob(
-            game_time_ms=game_time_ms,
-            players=players,
-        )
-        elements: list[UIElement] = []
+        actual_duration_ms = self.game.duration
+        if self.game_ended_at_ms is not None:
+            actual_duration_ms = self.game_ended_at_ms
+        if actual_duration_ms is None:
+            actual_duration_ms = 0
 
-        self._add_global_hud_elements(
-            elements=elements,
-            teams=teams,
-            players=players,
-            time_ms=game_time_ms,
-        )
-        self._add_player_hud_elements(
-            elements=elements, players=players, time_ms=game_time_ms
-        )
-        self._add_event_hud_elements(
-            elements=elements,
-            players=players,
-            teams=teams,
-            time_ms=game_time_ms,
+        self.config = resolve_config_dict(
+            orig_config,
+            time_ms,
+            pregame_delay_ms=pregame_delay_ms,
+            game_duration_ms=actual_duration_ms,
         )
 
-        # Apply camera shake
-        total_strength = 0.0
-        for shake in self.camera_shakes:
-            start = shake['start_ms']
-            duration = shake['duration_ms']
-            if start <= game_time_ms < start + duration:
-                elapsed = game_time_ms - start
-                factor = 1.0 - (elapsed / duration)
-                total_strength += shake['strength'] * factor
+        try:
+            game_time_ms = max(0, time_ms - pregame_delay_ms)
 
-        if total_strength > 0.0:
-            dx = random.uniform(-total_strength, total_strength)
-            dy = random.uniform(-total_strength, total_strength)
+            if (
+                self.game_ended_at_ms is not None
+                and game_time_ms > self.game_ended_at_ms
+            ):
+                game_time_ms = self.game_ended_at_ms
+
+            players, teams = self._get_state_at(game_time_ms)
+            self.current_variables = self._build_variables_blob(
+                game_time_ms=game_time_ms,
+                players=players,
+            )
+            elements: list[UIElement] = []
+
+            self._add_global_hud_elements(
+                elements=elements,
+                teams=teams,
+                players=players,
+                time_ms=game_time_ms,
+            )
+            self._add_player_hud_elements(
+                elements=elements, players=players, time_ms=game_time_ms
+            )
+            self._add_event_hud_elements(
+                elements=elements,
+                players=players,
+                teams=teams,
+                time_ms=game_time_ms,
+            )
+
+            # Apply camera shake
+            total_strength = 0.0
+            for shake in self.camera_shakes:
+                start = shake['start_ms']
+                duration = shake['duration_ms']
+                if start <= game_time_ms < start + duration:
+                    elapsed = game_time_ms - start
+                    factor = 1.0 - (elapsed / duration)
+                    total_strength += shake['strength'] * factor
+
+            if total_strength > 0.0:
+                dx = random.uniform(-total_strength, total_strength)
+                dy = random.uniform(-total_strength, total_strength)
+                for el in elements:
+                    if el.x is not None:
+                        el.x += dx
+                    if el.y is not None:
+                        el.y += dy
+
+            # Update alpha of each element based on visibility and fading
             for el in elements:
-                if el.x is not None:
-                    el.x += dx
-                if el.y is not None:
-                    el.y += dy
-
-        # Update alpha of each element based on visibility and fading
-        for el in elements:
-            if time_ms < el.visible_start_ms or time_ms >= el.visible_end_ms:
-                el.alpha = 0.0
-            else:
-                multiplier = 1.0
                 if (
-                    el.fade_in_ms > 0
-                    and time_ms < el.visible_start_ms + el.fade_in_ms
+                    time_ms < el.visible_start_ms
+                    or time_ms >= el.visible_end_ms
                 ):
-                    multiplier = (time_ms - el.visible_start_ms) / el.fade_in_ms
-                elif (
-                    el.fade_out_ms > 0
-                    and time_ms >= el.visible_end_ms - el.fade_out_ms
-                ):
-                    multiplier = (el.visible_end_ms - time_ms) / el.fade_out_ms
-                el.alpha *= max(0.0, min(1.0, multiplier))
+                    el.alpha = 0.0
+                else:
+                    multiplier = 1.0
+                    if (
+                        el.fade_in_ms > 0
+                        and time_ms < el.visible_start_ms + el.fade_in_ms
+                    ):
+                        multiplier = (
+                            time_ms - el.visible_start_ms
+                        ) / el.fade_in_ms
+                    elif (
+                        el.fade_out_ms > 0
+                        and time_ms >= el.visible_end_ms - el.fade_out_ms
+                    ):
+                        multiplier = (
+                            el.visible_end_ms - time_ms
+                        ) / el.fade_out_ms
+                    el.alpha *= max(0.0, min(1.0, multiplier))
 
-        return elements
+            return elements
+        finally:
+            self.config = orig_config
 
     def _detect_camera_shakes(self) -> None:
         """Precomputes camera shakes from the game's event history."""

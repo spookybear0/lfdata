@@ -1394,3 +1394,92 @@ def test_visible_end_ms_zero_stays_visible() -> None:
 
     assert el is not None
     assert el.visible_end_ms == 20000
+
+
+def test_generator_keyframes_integration() -> None:
+    """Verifies VisualElementGenerator evaluates keyframe animated properties."""
+    from datetime import datetime
+    from lfdata.model import LFGame
+    from lfdata.video.generator import VisualElementGenerator
+
+    # 1. Create a game with duration 10000 ms
+    game = LFGame(
+        game_id='test_anim_game',
+        timestamp=datetime.now(),
+        game_type='SM5',
+        duration=10000,
+    )
+
+    # 2. Configure game_type with animated x position and font size
+    config = {
+        'pregame_delay_ms': 2000,
+        'elements': {
+            'game_type': {
+                'enabled': True,
+                'x': {
+                    'keyframes': [
+                        {
+                            'time': 0,
+                            'reference': 'start_of_game',
+                            'value': 0.1,
+                        },
+                        {
+                            'time': 2000,
+                            'reference': 'start_of_game',
+                            'value': 0.5,
+                        },
+                    ]
+                },
+                'y': 0.96,
+                'style': {
+                    'size': {
+                        'keyframes': [
+                            {
+                                'time': 1000,
+                                'reference': 'start_of_video',
+                                'value': 10,
+                            },
+                            {
+                                'time': 3000,
+                                'reference': 'start_of_video',
+                                'value': 20,
+                            },
+                        ]
+                    }
+                },
+            }
+        },
+    }
+
+    hud_gen = VisualElementGenerator(game, None, config=config)
+
+    # Test coordinate x at time_ms = 2000 (which is start_of_game + 0)
+    # absolute video time 2000 ms is start_of_game + 0
+    # Expected resolved x = 0.1
+    import pytest
+
+    elements1 = hud_gen.generate_at(2000)
+    el_gt1 = next(
+        el
+        for el in elements1
+        if el.element_type == 'text' and el.text and 'Game Type' in el.text
+    )
+    assert el_gt1.x == pytest.approx(0.1)
+
+    # Test size at time_ms = 2000
+    # absolute video time 2000 ms is halfway between size keyframe 1
+    # (time 1000, value 10) and size keyframe 2 (time 3000, value 20).
+    # Expected resolved size = 15
+    assert el_gt1.style.size == 15
+
+    # Test coordinate x at time_ms = 3000 (which is start_of_game + 1000)
+    # expected resolved x = 0.3 (halfway between 0.1 and 0.5)
+    elements2 = hud_gen.generate_at(3000)
+    el_gt2 = next(
+        el
+        for el in elements2
+        if el.element_type == 'text' and el.text and 'Game Type' in el.text
+    )
+    assert el_gt2.x == pytest.approx(0.3)
+    # size at 3000 should be 20
+    assert el_gt2.style.size == 20
