@@ -861,6 +861,10 @@ def test_new_renderer_rules() -> None:
         assert '3' not in text_calls
         assert '1' not in text_calls
 
+        # Verify all scoreboard text calls use the 'lm' anchor
+        for args, kwargs in mock_draw_p.text.call_args_list:
+            assert kwargs.get('anchor') == 'lm'
+
 
 def test_downtime_bar_cropping() -> None:
     from unittest.mock import MagicMock, patch

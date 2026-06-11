@@ -1466,10 +1466,11 @@ class VideoGenerator:
 
         for col_name, offset in zip(columns, offsets):
             draw.text(
-                (offset, ty + padding_y),
+                (offset, ty + header_h // 2),
                 col_name,
                 fill=(255, 255, 255, 255),
                 font=bold_font,
+                anchor='lm',
                 stroke_width=stroke_width,
                 stroke_fill=(0, 0, 0, 255),
             )
@@ -1527,7 +1528,6 @@ class VideoGenerator:
                 p_color = dimmed_color
 
             vals = self._compile_player_row_values(p, columns)
-            row_padding = int(2 * (row_h / 28) * height / 1080)
             for col, val, offset in zip(columns, vals, offsets):
                 if col == 'Role':
                     role_name = p.get('role_name', '').lower()
@@ -1547,10 +1547,11 @@ class VideoGenerator:
                     p_color[3] if len(p_color) > 3 else 255,
                 )
                 draw.text(
-                    (offset, y_row + row_padding),
+                    (offset, y_row + row_h // 2),
                     val,
                     fill=p_color,
                     font=font,
+                    anchor='lm',
                     stroke_width=stroke_width,
                     stroke_fill=stroke_fill,
                 )
@@ -1583,10 +1584,11 @@ class VideoGenerator:
                                 )
                                 text_x = right_edge + margin
                                 draw.text(
-                                    (text_x, y_row + row_padding),
+                                    (text_x, y_row + row_h // 2),
                                     f'x{num_penalties}',
                                     fill=p_color,
                                     font=font,
+                                    anchor='lm',
                                     stroke_width=stroke_width,
                                     stroke_fill=stroke_fill,
                                 )
@@ -1604,7 +1606,7 @@ class VideoGenerator:
         x_start: int,
         table_width: int,
         y_row: int,
-        padding_y: int,
+        totals_h: int,
         stroke_width: int,
         draw_borders: bool,
     ) -> None:
@@ -1620,7 +1622,7 @@ class VideoGenerator:
             x_start: X start coordinate.
             table_width: Table width.
             y_row: Y coordinate starting the totals row.
-            padding_y: Vertical padding.
+            totals_h: Height of the totals row.
             stroke_width: The text outline stroke width in pixels.
             draw_borders: Whether to draw the totals separator line.
         """
@@ -1633,10 +1635,11 @@ class VideoGenerator:
         tot_vals = self._compile_totals_row_values(totals, columns)
         for val, offset in zip(tot_vals, offsets):
             draw.text(
-                (offset, y_row + padding_y),
+                (offset, y_row + totals_h // 2),
                 val,
                 fill=(255, 255, 255, 255),
                 font=bold_font,
+                anchor='lm',
                 stroke_width=stroke_width,
                 stroke_fill=(0, 0, 0, 255),
             )
@@ -1746,6 +1749,7 @@ class VideoGenerator:
                 stroke_width=stroke_width,
             )
 
+            totals_h = int(pixel_size * (35 / 27))
             self._draw_totals_row(
                 draw=draw,
                 totals=team.get('totals', {}),
@@ -1756,7 +1760,7 @@ class VideoGenerator:
                 x_start=x_start,
                 table_width=actual_table_width,
                 y_row=y_row,
-                padding_y=padding_y,
+                totals_h=totals_h,
                 stroke_width=stroke_width,
                 draw_borders=draw_borders,
             )
