@@ -76,7 +76,10 @@ class LayoutCanvas(tk.Canvas):
 
         elements = self.config_manager.config.get('elements', {})
         for name, el in elements.items():
-            if not el.get('enabled', False):
+            enabled_val = self.config_manager.resolve_val(
+                el.get('enabled', False)
+            )
+            if not enabled_val:
                 continue
 
             x1, y1, x2, y2 = self._get_element_bounds(name=name, el=el)
@@ -135,10 +138,24 @@ class LayoutCanvas(tk.Canvas):
         Returns:
             A tuple of float (x1, y1, x2, y2).
         """
-        x_rel = el.get('x', 0.5)
-        y_rel = el.get('y', 0.5)
-        align = el.get('align', 'left')
-        ext = el.get('extents', [0.15, 0.05])
+        x_raw = el.get('x', 0.5)
+        y_raw = el.get('y', 0.5)
+        align_raw = el.get('align', 'left')
+        ext_raw = el.get('extents', [0.15, 0.05])
+
+        x_rel = self.config_manager.resolve_val(x_raw)
+        y_rel = self.config_manager.resolve_val(y_raw)
+        align = self.config_manager.resolve_val(align_raw)
+        ext = self.config_manager.resolve_val(ext_raw)
+
+        if x_rel is None:
+            x_rel = 0.5
+        if y_rel is None:
+            y_rel = 0.5
+        if align is None:
+            align = 'left'
+        if ext is None or not isinstance(ext, (list, tuple)) or len(ext) < 2:
+            ext = [0.15, 0.05]
 
         w_canvas = ext[0] * self.width
         h_canvas = ext[1] * self.height
@@ -171,20 +188,32 @@ class LayoutCanvas(tk.Canvas):
         # Check if resize handle is clicked
         if self.selected_element:
             el = self.config_manager.get_element(self.selected_element)
-            if el and el.get('enabled', False):
-                x1, y1, x2, y2 = self._get_element_bounds(
-                    name=self.selected_element, el=el
+            if el:
+                enabled_val = self.config_manager.resolve_val(
+                    el.get('enabled', False)
                 )
-                if (
-                    x2 - 10 <= click_x <= x2 + 2
-                    and y2 - 10 <= click_y <= y2 + 2
-                ):
-                    self._drag_mode = 'resize'
-                    self._start_x = click_x
-                    self._start_y = click_y
-                    self._element_start_w = el.get('extents', [0.15, 0.05])[0]
-                    self._element_start_h = el.get('extents', [0.15, 0.05])[1]
-                    return
+                if enabled_val:
+                    x1, y1, x2, y2 = self._get_element_bounds(
+                        name=self.selected_element, el=el
+                    )
+                    if (
+                        x2 - 10 <= click_x <= x2 + 2
+                        and y2 - 10 <= click_y <= y2 + 2
+                    ):
+                        self._drag_mode = 'resize'
+                        self._start_x = click_x
+                        self._start_y = click_y
+                        extents_raw = el.get('extents', [0.15, 0.05])
+                        extents = self.config_manager.resolve_val(extents_raw)
+                        if (
+                            extents is None
+                            or not isinstance(extents, (list, tuple))
+                            or len(extents) < 2
+                        ):
+                            extents = [0.15, 0.05]
+                        self._element_start_w = extents[0]
+                        self._element_start_h = extents[1]
+                        return
 
         # Check if any element box is clicked
         clicked_items = self.find_withtag('current')
@@ -201,8 +230,18 @@ class LayoutCanvas(tk.Canvas):
                         self._drag_mode = 'move'
                         self._start_x = click_x
                         self._start_y = click_y
-                        self._element_start_x = el.get('x', 0.5)
-                        self._element_start_y = el.get('y', 0.5)
+                        x_val = self.config_manager.resolve_val(
+                            el.get('x', 0.5)
+                        )
+                        y_val = self.config_manager.resolve_val(
+                            el.get('y', 0.5)
+                        )
+                        self._element_start_x = (
+                            x_val if x_val is not None else 0.5
+                        )
+                        self._element_start_y = (
+                            y_val if y_val is not None else 0.5
+                        )
                     self.refresh_elements()
                     return
 

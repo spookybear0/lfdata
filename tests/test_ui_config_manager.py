@@ -117,3 +117,43 @@ def test_get_lfdata_command(manager: UIConfigManager) -> None:
         assert expected_bin in cmd_frozen[0]
     finally:
         delattr(sys, 'frozen')
+
+
+def test_animation_state_and_keyframes(manager: UIConfigManager) -> None:
+    """Verifies is_prop_animated, toggle_prop_animated, and update_element."""
+    # Initially element x is not animated
+    assert manager.is_prop_animated('time', 'x') is False
+
+    # Toggle animated on
+    res = manager.toggle_prop_animated('time', 'x')
+    assert res is True
+    assert manager.is_prop_animated('time', 'x') is True
+
+    # Check that properties were converted to keyframe dicts
+    el = manager.get_element('time')
+    assert el is not None
+    assert isinstance(el.get('x'), dict)
+    assert 'keyframes' in el['x']
+    assert el['x']['keyframes'][0]['value'] == 0.98
+
+    # Set current time and update property
+    manager.current_time_ms = 10000
+    manager.update_element('time', 'x', 0.5)
+
+    # Check keyframe list has been updated / new keyframe added
+    assert len(el['x']['keyframes']) == 2
+    # Find keyframe at 10000ms
+    kf_10000 = None
+    for kf in el['x']['keyframes']:
+        if kf['time'] == 10000:
+            kf_10000 = kf
+            break
+    assert kf_10000 is not None
+    assert kf_10000['value'] == 0.5
+
+    # Toggle animated off
+    res = manager.toggle_prop_animated('time', 'x')
+    assert res is False
+    assert manager.is_prop_animated('time', 'x') is False
+    # Converted back to constant
+    assert el.get('x') == 0.98

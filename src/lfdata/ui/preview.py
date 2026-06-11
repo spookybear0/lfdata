@@ -5,6 +5,7 @@ import tempfile
 import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
+from typing import Callable
 from PIL import Image, ImageTk
 from lfdata.ui.config_manager import UIConfigManager
 
@@ -16,6 +17,7 @@ class ImagePreview(ttk.LabelFrame):
         self,
         parent: tk.Widget,
         config_manager: UIConfigManager,
+        on_time_changed_callback: Callable[[int], None] | None = None,
     ) -> None:
         """Initializes the image preview panel.
 
@@ -26,6 +28,7 @@ class ImagePreview(ttk.LabelFrame):
         super().__init__(parent, text=' Rendered Preview ')
         self.config_manager = config_manager
         self.current_time_ms = 0
+        self.on_time_changed_callback = on_time_changed_callback
 
         self._create_widgets()
 
@@ -124,7 +127,10 @@ class ImagePreview(ttk.LabelFrame):
         """
         val_ms = int(float(val))
         self.current_time_ms = val_ms
+        self.config_manager.current_time_ms = val_ms
         self._update_time_label(val_ms)
+        if self.on_time_changed_callback:
+            self.on_time_changed_callback(val_ms)
 
     def _update_time_label(self, time_ms: int) -> None:
         """Formats and sets the text for the time indicator label.

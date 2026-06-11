@@ -222,3 +222,22 @@ def test_preview_slider_movement(manager: UIConfigManager) -> None:
 
     assert preview.current_time_ms == 25000
     assert '25,000 ms' in preview.lbl_time.text
+
+
+def test_preview_slider_callback(manager: UIConfigManager) -> None:
+    """Tests that moving the timeline slider triggers the callback."""
+    parent = MagicMock()
+    callback_val = None
+
+    def callback(val: int) -> None:
+        nonlocal callback_val
+        callback_val = val
+
+    preview = ImagePreview(parent, manager, on_time_changed_callback=callback)
+
+    # Move slider to 35000ms
+    preview._on_slider_move('35000.0')
+
+    assert preview.current_time_ms == 35000
+    assert callback_val == 35000
+

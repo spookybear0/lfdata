@@ -26,6 +26,18 @@ class DummyCanvas:
     def create_text(self, *args: Any, **kwargs: Any) -> int:
         return 1
 
+    def create_window(self, *args: Any, **kwargs: Any) -> int:
+        return 1
+
+    def itemconfig(self, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    def yview_scroll(self, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    def bbox(self, *args: Any, **kwargs: Any) -> tuple[int, int, int, int]:
+        return (0, 0, 100, 100)
+
 
 # Mock tkinter before importing canvas to avoid TclError in headless testing
 
@@ -213,3 +225,31 @@ def test_canvas_update_callback_on_release(
     canvas._on_release(DummyEvent(0, 0))
     assert update_called
     assert canvas._drag_mode is None
+
+
+def test_canvas_with_animated_properties(
+    mock_root: MagicMock, manager: UIConfigManager
+) -> None:
+    """Tests that canvas resolves animated property dicts correctly."""
+    # Toggle animation on property 'x'
+    manager.toggle_prop_animated('time', 'x')
+    el = manager.get_element('time')
+    assert el is not None
+    assert isinstance(el.get('x'), dict)
+
+    canvas = LayoutCanvas(mock_root, manager, lambda name: None)
+
+    # Set keyframe value to 0.8
+    el['x']['keyframes'][0]['value'] = 0.8
+
+    # Width: 640, Height: 360
+    # time: x=0.8 resolved, y=0.5, extents=[0.2, 0.1], align='center'
+    # w_canvas = 0.2 * 640 = 128
+    # h_canvas = 0.1 * 360 = 36
+    # x_anchor = 0.8 * 640 = 512
+    # y_anchor = 0.5 * 360 = 180
+    # x1 = 512 - 64 = 448
+    # x2 = 448 + 128 = 576
+    x1, y1, x2, y2 = canvas._get_element_bounds('time', el)
+    assert x1 == pytest.approx(448.0)
+    assert x2 == pytest.approx(576.0)

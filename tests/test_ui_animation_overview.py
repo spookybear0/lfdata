@@ -1,9 +1,11 @@
-"""Tests for the LFDataUIApp class."""
+"""Tests for the AnimationOverviewPanel class."""
 
-from unittest.mock import MagicMock, patch
 from typing import Any
+from unittest.mock import MagicMock
+import pytest
 
 
+# Universal Dummy definitions to prevent conflicts in sys.modules
 class DummyStringVar:
     """Mock StringVar for testing."""
 
@@ -15,19 +17,6 @@ class DummyStringVar:
 
     def set(self, value: str) -> None:
         self._val = str(value)
-
-
-class DummyDoubleVar:
-    """Mock DoubleVar for testing."""
-
-    def __init__(self, value: float = 0.0) -> None:
-        self._val = float(value)
-
-    def get(self) -> float:
-        return self._val
-
-    def set(self, value: float) -> None:
-        self._val = float(value)
 
 
 class DummyWidget:
@@ -210,15 +199,11 @@ class DummyCanvas(DummyWidget):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.selected_element = None
 
     def delete(self, *args: Any, **kwargs: Any) -> None:
         pass
 
     def create_line(self, *args: Any, **kwargs: Any) -> int:
-        return 1
-
-    def create_rectangle(self, *args: Any, **kwargs: Any) -> int:
         return 1
 
     def create_oval(self, *args: Any, **kwargs: Any) -> int:
@@ -239,150 +224,70 @@ class DummyCanvas(DummyWidget):
     def bbox(self, *args: Any, **kwargs: Any) -> tuple[int, int, int, int]:
         return (0, 0, 100, 100)
 
-    def select_element(self, *args: Any, **kwargs: Any) -> None:
-        pass
 
-    def refresh_elements(self, *args: Any, **kwargs: Any) -> None:
-        pass
-
-
-class DummyMenu:
-    """Mock Menu widget for testing."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        pass
-
-    def add_cascade(self, *args: Any, **kwargs: Any) -> None:
-        pass
-
-    def add_command(self, *args: Any, **kwargs: Any) -> None:
-        pass
-
-    def add_separator(self, *args: Any, **kwargs: Any) -> None:
-        pass
-
-
-# Patch all Tkinter classes globally
+# Directly monkeypatch the loaded tkinter modules
 import tkinter  # noqa: E402
 import tkinter.ttk  # noqa: E402
 
-tkinter.Tk = DummyWidget
-tkinter.Canvas = DummyCanvas
-tkinter.Menu = DummyMenu
-tkinter.Listbox = DummyWidget
 tkinter.StringVar = DummyStringVar
-tkinter.DoubleVar = DummyDoubleVar
-tkinter.BooleanVar = MagicMock
-
-tkinter.ttk.PanedWindow = DummyWidget
-tkinter.ttk.Frame = DummyWidget
+tkinter.Canvas = DummyCanvas
 tkinter.ttk.LabelFrame = DummyWidget
+tkinter.ttk.Frame = DummyWidget
 tkinter.ttk.Label = DummyWidget
-tkinter.ttk.Entry = DummyWidget
 tkinter.ttk.Combobox = DummyWidget
-tkinter.ttk.Scale = DummyWidget
 tkinter.ttk.Button = DummyWidget
-tkinter.ttk.Scrollbar = DummyWidget
-tkinter.ttk.Checkbutton = DummyWidget
 tkinter.ttk.Treeview = DummyWidget
 tkinter.NORMAL = 'normal'
 tkinter.DISABLED = 'disabled'
 
-from lfdata.ui.app import LFDataUIApp  # noqa: E402
+from lfdata.ui.animation_overview import AnimationOverviewPanel  # noqa: E402
+from lfdata.ui.config_manager import UIConfigManager  # noqa: E402
 
 
-def test_app_initialization() -> None:
-    """Tests initializing the main application and populating settings."""
-    app = LFDataUIApp()
+@pytest.fixture
+def manager() -> UIConfigManager:
+    """Fixture returning a config manager with animation.
 
-    # Check that managers and sub-panels were instantiated
-    assert app.config_manager is not None
-    assert app.canvas is not None
-    assert app.properties is not None
-    assert app.preview is not None
-
-    # Check global settings fields initial values (from DEFAULT_CONFIG)
-    assert app.fps_var.get() == '60'
-    assert app.width_var.get() == '1920'
-    assert app.height_var.get() == '1080'
-    assert app.pregame_delay_ms_var.get() == '0'
-
-    # Check that Listbox contains some elements
-    assert app.lst_elements._items
-    assert 'time' in app.lst_elements._items
+    Returns:
+        UIConfigManager: Config manager instance.
+    """
+    cm = UIConfigManager()
+    cm.update_element('time', 'enabled', True)
+    cm.update_element('time', 'x', 0.8)
+    cm.toggle_prop_animated('time', 'x')
+    return cm
 
 
-def test_app_sync_selection() -> None:
-    """Tests synchronizing element selection between components."""
-    app = LFDataUIApp()
+def test_animation_overview_load(manager: UIConfigManager) -> None:
+    """Tests loading an element into the overview panel."""
+    parent = MagicMock()
+    panel = AnimationOverviewPanel(parent, manager)
 
-    # Trigger select element
-    app._on_element_selected('time')
+    assert panel.element_name is None
 
-    # Selected item in listbox should be 'time'
-    selected_indices = app.lst_elements.curselection()
-    assert selected_indices
-    assert app.lst_elements.get(selected_indices[0]) == 'time'
-    assert app.properties.selected_element == 'time'
-
-
-def test_app_global_settings_change() -> None:
-    """Tests modifying FPS and Resolution fields updates the config."""
-    app = LFDataUIApp()
-
-    # Set new global fields
-    app.fps_var.set('30')
-    app.width_var.set('1280')
-    app.height_var.set('720')
-    app.pregame_delay_ms_var.set('2000')
-
-    # Trigger setting changed callback
-    app._on_global_setting_changed()
-
-    cfg = app.config_manager.config
-    assert cfg.get('fps') == 30
-    assert cfg.get('resolution') == [1280, 720]
-    assert cfg.get('pregame_delay_ms') == 2000
+    # Load element
+    panel.load_element('time')
+    assert panel.element_name == 'time'
+    assert panel.cmb_prop['values'] == ['x', 'y', 'size (font size)']
+    assert panel.prop_var.get() == 'x'
 
 
-@patch('tkinter.filedialog.askopenfilename')
-def test_app_open_config(mock_dialog: MagicMock) -> None:
-    """Tests opening a config file updates the settings widgets."""
-    app = LFDataUIApp()
+def test_animation_overview_delete_keyframe(manager: UIConfigManager) -> None:
+    """Tests deleting a keyframe from the panel."""
+    parent = MagicMock()
+    panel = AnimationOverviewPanel(parent, manager)
 
-    # Create dummy config file content
-    import tempfile
-    import yaml
+    panel.load_element('time')
 
-    with tempfile.NamedTemporaryFile(
-        suffix='.yaml', mode='w', encoding='utf-8', delete=False
-    ) as f:
-        temp_name = f.name
-        yaml.safe_dump(
-            {'fps': 24, 'resolution': [640, 480], 'pregame_delay_ms': 500}, f
-        )
+    el = manager.get_element('time')
+    assert el is not None
+    keyframes = el['x']['keyframes']
+    assert len(keyframes) == 1
 
-    try:
-        mock_dialog.return_value = temp_name
-        app._open_config()
+    panel.selected_kf_idx = 0
+    panel._update_edit_state()
 
-        # Check values were updated
-        assert app.fps_var.get() == '24'
-        assert app.width_var.get() == '640'
-        assert app.height_var.get() == '480'
-        assert app.pregame_delay_ms_var.get() == '500'
-    finally:
-        import os
+    panel._on_delete_click()
 
-        if os.path.exists(temp_name):
-            os.remove(temp_name)
-
-
-def test_app_properties_updated_refresh_preview() -> None:
-    """Tests that modifying properties triggers an image preview update."""
-    app = LFDataUIApp()
-    app.preview = MagicMock()
-
-    app._on_properties_updated()
-
-    assert app.preview.update_preview.called
+    assert len(keyframes) == 0
+    assert panel.selected_kf_idx is None

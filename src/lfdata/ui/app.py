@@ -5,6 +5,7 @@ import subprocess
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from PIL import Image, ImageDraw, ImageTk
 from lfdata.ui.canvas import LayoutCanvas
 from lfdata.ui.config_manager import UIConfigManager
 from lfdata.ui.preview import ImagePreview
@@ -86,7 +87,11 @@ class LFDataUIApp(tk.Tk):
         self.canvas.pack(fill='both', expand=True, padx=5, pady=5)
 
         # Preview Frame (Left - Bottom)
-        self.preview = ImagePreview(left_vertical_pane, self.config_manager)
+        self.preview = ImagePreview(
+            left_vertical_pane,
+            self.config_manager,
+            on_time_changed_callback=self._on_time_changed,
+        )
         left_vertical_pane.add(self.preview, weight=2)
 
     def _create_right_pane(self, parent: ttk.PanedWindow) -> None:
@@ -113,9 +118,48 @@ class LFDataUIApp(tk.Tk):
             right_vertical_pane, text=' Global Settings '
         )
         right_vertical_pane.add(settings_container, weight=2)
-        self._create_global_settings(settings_container)
 
-    def _create_global_settings(self, parent: ttk.LabelFrame) -> None:
+        canvas = tk.Canvas(
+            settings_container, borderwidth=0, highlightthickness=0
+        )
+        scrollbar = ttk.Scrollbar(
+            settings_container, orient='vertical', command=canvas.yview
+        )
+        inner_frame = ttk.Frame(canvas)
+
+        canvas_window = canvas.create_window(
+            (0, 0), window=inner_frame, anchor='nw'
+        )
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side='right', fill='y')
+        canvas.pack(side='left', fill='both', expand=True)
+
+        inner_frame.bind(
+            '<Configure>',
+            lambda e: canvas.configure(scrollregion=canvas.bbox('all')),
+        )
+        canvas.bind(
+            '<Configure>',
+            lambda e: canvas.itemconfig(canvas_window, width=e.width),
+        )
+
+        canvas.bind(
+            '<Enter>',
+            lambda e: canvas.bind_all(
+                '<MouseWheel>',
+                lambda ev: (
+                    canvas.yview_scroll(int(-1 * (ev.delta / 120)), 'units')
+                    if ev.delta
+                    else None
+                ),
+            ),
+        )
+        canvas.bind('<Leave>', lambda e: canvas.unbind_all('<MouseWheel>'))
+
+        self._create_global_settings(inner_frame)
+
+    def _create_global_settings(self, parent: tk.Widget) -> None:
         """Sets up buttons, inputs, listboxes, and tags inside global settings.
 
         Args:
@@ -191,7 +235,7 @@ class LFDataUIApp(tk.Tk):
             '<Return>', lambda e: self._on_global_setting_changed()
         )
 
-        # Elements Listbox
+        # Elements Treeview
         ttk.Label(parent, text='UI Elements:').grid(
             row=5, column=0, sticky='nw', padx=5, pady=5
         )
@@ -199,15 +243,13 @@ class LFDataUIApp(tk.Tk):
         list_frame.grid(row=5, column=1, sticky='nsew', padx=5, pady=5)
         parent.rowconfigure(5, weight=1)
 
-        self.lst_elements = tk.Listbox(
+        self.lst_elements = ttk.Treeview(
             list_frame,
-            height=5,
-            selectmode='single',
-            bg='#1e1e1e',
-            fg='#ffffff',
+            show='tree',
+            selectmode='browse',
         )
         self.lst_elements.pack(side='left', fill='both', expand=True)
-        self.lst_elements.bind('<<ListboxSelect>>', self._on_listbox_select)
+        self.lst_elements.bind('<<TreeviewSelect>>', self._on_tree_select)
 
         scrollbar = ttk.Scrollbar(
             list_frame, orient='vertical', command=self.lst_elements.yview
@@ -224,7 +266,7 @@ class LFDataUIApp(tk.Tk):
         )
 
     def _sync_global_widgets(self) -> None:
-        """Populates the global fields and listbox from the config manager."""
+        """Populates the global fields and tree from the config manager."""
         cfg = self.config_manager.config
         self.fps_var.set(str(cfg.get('fps', 60)))
 
@@ -234,50 +276,55 @@ class LFDataUIApp(tk.Tk):
 
         self.pregame_delay_ms_var.set(str(cfg.get('pregame_delay_ms', 0)))
 
-        # Populate elements listbox
-        self.lst_elements.delete(0, 'end')
+        # Populate elements tree
+        self.lst_elements.delete(*self.lst_elements.get_children())
         elements = cfg.get('elements', {})
         for name in sorted(elements.keys()):
-            self.lst_elements.insert('end', name)
+            self.lst_elements.insert('', 'end', iid=name, text=name)
 
     def _on_element_selected(self, name: str | None) -> None:
-        """Handles selection sync when element is chosen via canvas or list.
+        """Handles selection sync when element is chosen via canvas or tree.
 
         Args:
             name: The selected element name.
         """
         self.properties.load_element(name)
 
-        # Synchronize listbox selection
-        self.lst_elements.selection_clear(0, 'end')
-        if name:
-            try:
-                idx = sorted(
-                    self.config_manager.config.get('elements', {}).keys()
-                ).index(name)
-                self.lst_elements.selection_set(idx)
-                self.lst_elements.see(idx)
-            except ValueError:
-                pass
+        # Synchronize tree selection
+        self.lst_elements.selection_set(())
+        if name and self.lst_elements.exists(name):
+            self.lst_elements.selection_set(name)
+            self.lst_elements.see(name)
 
-    def _on_listbox_select(self, event: tk.Event) -> None:
-        """Handles listbox item clicks to select element in canvas & forms.
+    def _on_tree_select(self, event: tk.Event) -> None:
+        """Handles tree item clicks to select element in canvas & forms.
 
         Args:
-            event: The listbox selection event.
+            event: The tree selection event.
         """
-        selection = self.lst_elements.curselection()
+        selection = self.lst_elements.selection()
         if not selection:
+            self.canvas.select_element(None)
+            self.properties.load_element(None)
             return
-        idx = selection[0]
-        name = self.lst_elements.get(idx)
+        name = selection[0]
         self.canvas.select_element(name)
         self.properties.load_element(name)
 
     def _on_properties_updated(self) -> None:
-        """Updates layout preview when forms change."""
+        """Updates layout preview and properties panel when values change."""
         self.canvas.refresh_elements()
+        self.properties.load_element(self.canvas.selected_element)
         self.preview.update_preview()
+
+    def _on_time_changed(self, time_ms: int) -> None:
+        """Handles slider time changes to update canvas and properties panel.
+
+        Args:
+            time_ms: The current preview time in milliseconds.
+        """
+        self.canvas.refresh_elements()
+        self.properties.load_element(self.canvas.selected_element)
 
     def _on_global_setting_changed(self) -> None:
         """Applies FPS and Resolution edits back to config."""

@@ -40,22 +40,27 @@ class DummyWidget:
         self.image: Any = None
         self.text: str = ''
         self._items: list[str] = []
-        self._selection: list[int] = []
+        self._selection: list[Any] = []
+        self._mapped: bool = True
+        self._options: dict[str, Any] = {}
 
     def grid(self, *args: Any, **kwargs: Any) -> None:
-        pass
+        self._mapped = True
 
     def pack(self, *args: Any, **kwargs: Any) -> None:
-        pass
+        self._mapped = True
 
     def place(self, *args: Any, **kwargs: Any) -> None:
-        pass
+        self._mapped = True
 
     def pack_propagate(self, *args: Any, **kwargs: Any) -> None:
         pass
 
     def grid_propagate(self, *args: Any, **kwargs: Any) -> None:
         pass
+
+    def grid_remove(self, *args: Any, **kwargs: Any) -> None:
+        self._mapped = False
 
     def bind(self, *args: Any, **kwargs: Any) -> None:
         pass
@@ -75,7 +80,17 @@ class DummyWidget:
     def winfo_children(self) -> list[Any]:
         return []
 
+    def winfo_ismapped(self) -> bool:
+        return self._mapped
+
+    def winfo_width(self) -> int:
+        return 300
+
+    def winfo_height(self) -> int:
+        return 150
+
     def __setitem__(self, key: str, value: Any) -> None:
+        self._options[key] = value
         if key == 'state':
             self._state = value
         elif key == 'text':
@@ -83,7 +98,11 @@ class DummyWidget:
         elif key == 'image':
             self.image = value
 
+    def __getitem__(self, key: str) -> Any:
+        return self._options.get(key)
+
     def config(self, *args: Any, **kwargs: Any) -> None:
+        self._options.update(kwargs)
         if 'image' in kwargs:
             self.image = kwargs['image']
         if 'text' in kwargs:
@@ -120,25 +139,68 @@ class DummyWidget:
         pass
 
     def get(self, *args: Any, **kwargs: Any) -> Any:
+        if args and isinstance(args[0], int):
+            idx = args[0]
+            if 0 <= idx < len(self._items):
+                return self._items[idx]
         return ''
 
-    # Listbox methods
-    def delete(self, start: int, end: Any = None) -> None:
+    # Listbox / Treeview common methods
+    def delete(self, *args: Any, **kwargs: Any) -> None:
         self._items = []
 
-    def insert(self, index: Any, item: str) -> None:
-        self._items.append(item)
+    def insert(self, *args: Any, **kwargs: Any) -> str:
+        if len(args) >= 2 and isinstance(args[0], str):
+            iid = kwargs.get('iid', args[2] if len(args) > 2 else None)
+            text = kwargs.get('text', args[3] if len(args) > 3 else '')
+            item_name = iid or text
+            if item_name:
+                self._items.append(str(item_name))
+                return str(item_name)
+        elif len(args) >= 2:
+            self._items.append(str(args[1]))
+            return str(args[1])
+        return ''
 
     def curselection(self) -> list[int]:
-        return self._selection
+        res = []
+        for s in self._selection:
+            if s in self._items:
+                res.append(self._items.index(s))
+        return res
 
     def selection_clear(self, *args: Any) -> None:
         self._selection = []
 
-    def selection_set(self, index: int) -> None:
-        self._selection = [index]
+    def selection_set(self, *args: Any) -> None:
+        if not args:
+            self._selection = []
+            return
+        val = args[0]
+        if isinstance(val, (list, tuple)):
+            self._selection = list(val)
+        else:
+            self._selection = [val]
 
-    def see(self, index: int) -> None:
+    def selection(self) -> list[Any]:
+        return self._selection
+
+    def get_children(self) -> list[str]:
+        return self._items
+
+    def exists(self, item: str) -> bool:
+        return item in self._items
+
+    def item(self, item: str, **kwargs: Any) -> None:
+        pass
+
+    def identify_row(self, y: int) -> str | None:
+        return self._items[0] if self._items else None
+
+    def identify_element(self, x: int, y: int) -> str:
+        return 'image'
+
+    def see(self, index: Any) -> None:
         pass
 
     def yview(self, *args: Any, **kwargs: Any) -> None:
@@ -204,7 +266,11 @@ def test_properties_load_element(manager: UIConfigManager) -> None:
     assert panel.align_var.get() == 'right'
     assert panel.font_var.get() == 'advanced_pixel_lcd-7'
     assert panel.size_var.get() == '40'
+    assert panel.tilt_var.get() == '0.000'
     assert panel.start_ms_var.get() == '1000'
+    assert panel.x_anim_var.get() is False
+    assert panel.tilt_anim_var.get() is False
+    assert panel.anim_overview.winfo_ismapped() is False
 
 
 def test_properties_clear(manager: UIConfigManager) -> None:
@@ -254,3 +320,19 @@ def test_properties_apply(manager: UIConfigManager) -> None:
     assert el.get('extents') == [0.3, 0.2]
     assert el.get('style', {}).get('size') == 25
     assert el.get('visible_start_ms') == 5000
+
+    # Test applying tilt
+    panel.tilt_var.set('5.5')
+    panel._apply_properties()
+    assert el.get('tilt') == 5.5
+
+    # Test toggling animation on property 'x'
+    assert panel.anim_overview.winfo_ismapped() is False
+    panel._toggle_anim('x')
+    assert panel.x_anim_var.get() is True
+    assert panel.anim_overview.winfo_ismapped() is True
+
+    # Test toggling animation off
+    panel._toggle_anim('x')
+    assert panel.x_anim_var.get() is False
+    assert panel.anim_overview.winfo_ismapped() is False

@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any, Callable
 from lfdata.ui.config_manager import UIConfigManager
+from lfdata.ui.animation_overview import AnimationOverviewPanel
 
 
 class PropertiesPanel(ttk.LabelFrame):
@@ -34,7 +35,49 @@ class PropertiesPanel(ttk.LabelFrame):
 
     def _create_widgets(self) -> None:
         """Creates and layouts the form input widgets."""
-        self.grid_columnconfigure(1, weight=1)
+        self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(
+            self, orient='vertical', command=self.canvas.yview
+        )
+        self.container = ttk.Frame(self.canvas)
+
+        self.canvas_window = self.canvas.create_window(
+            (0, 0), window=self.container, anchor='nw'
+        )
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.scrollbar.pack(side='right', fill='y')
+        self.canvas.pack(side='left', fill='both', expand=True)
+
+        self.container.bind(
+            '<Configure>',
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox('all')
+            ),
+        )
+        self.canvas.bind(
+            '<Configure>',
+            lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width),
+        )
+
+        self.canvas.bind(
+            '<Enter>',
+            lambda e: self.canvas.bind_all(
+                '<MouseWheel>',
+                lambda ev: (
+                    self.canvas.yview_scroll(
+                        int(-1 * (ev.delta / 120)), 'units'
+                    )
+                    if ev.delta
+                    else None
+                ),
+            ),
+        )
+        self.canvas.bind(
+            '<Leave>', lambda e: self.canvas.unbind_all('<MouseWheel>')
+        )
+
+        self.container.grid_columnconfigure(1, weight=1)
 
         # Variables
         self.x_var = tk.StringVar()
@@ -45,21 +88,30 @@ class PropertiesPanel(ttk.LabelFrame):
         self.enabled_var = tk.BooleanVar()
         self.font_var = tk.StringVar()
         self.size_var = tk.StringVar()
+        self.tilt_var = tk.StringVar()
         self.start_ms_var = tk.StringVar()
         self.end_ms_var = tk.StringVar()
         self.fade_in_ms_var = tk.StringVar()
         self.fade_out_ms_var = tk.StringVar()
         self.formatted_text_var = tk.StringVar()
 
+        # Animation states checkboxes variables
+        self.x_anim_var = tk.BooleanVar()
+        self.y_anim_var = tk.BooleanVar()
+        self.w_anim_var = tk.BooleanVar()
+        self.h_anim_var = tk.BooleanVar()
+        self.size_anim_var = tk.BooleanVar()
+        self.tilt_anim_var = tk.BooleanVar()
+
         # Labels and inputs list for clean layout
         row = 0
 
         # Enabled Checkbox
-        ttk.Label(self, text='Enabled:').grid(
+        ttk.Label(self.container, text='Enabled:').grid(
             row=row, column=0, sticky='w', padx=5, pady=3
         )
         self.chk_enabled = ttk.Checkbutton(
-            self,
+            self.container,
             variable=self.enabled_var,
             command=self._on_check_toggle,
         )
@@ -67,21 +119,25 @@ class PropertiesPanel(ttk.LabelFrame):
         row += 1
 
         # Coordinates
-        self._add_row(row, 'Anchor X (0-1):', self.x_var)
+        self._add_row(row, 'Anchor X (0-1):', self.x_var, 'x', self.x_anim_var)
         row += 1
-        self._add_row(row, 'Anchor Y (0-1):', self.y_var)
+        self._add_row(row, 'Anchor Y (0-1):', self.y_var, 'y', self.y_anim_var)
         row += 1
-        self._add_row(row, 'Width Extent:', self.w_var)
+        self._add_row(
+            row, 'Width Extent:', self.w_var, 'extents', self.w_anim_var
+        )
         row += 1
-        self._add_row(row, 'Height Extent:', self.h_var)
+        self._add_row(
+            row, 'Height Extent:', self.h_var, 'extents', self.h_anim_var
+        )
         row += 1
 
         # Alignment
-        ttk.Label(self, text='Alignment:').grid(
+        ttk.Label(self.container, text='Alignment:').grid(
             row=row, column=0, sticky='w', padx=5, pady=3
         )
         self.cmb_align = ttk.Combobox(
-            self,
+            self.container,
             textvariable=self.align_var,
             values=['left', 'center', 'right'],
             state='readonly',
@@ -93,7 +149,13 @@ class PropertiesPanel(ttk.LabelFrame):
         # Font & Style
         self._add_row(row, 'Font Family:', self.font_var)
         row += 1
-        self._add_row(row, 'Font Size:', self.size_var)
+        self._add_row(
+            row, 'Font Size:', self.size_var, 'size', self.size_anim_var
+        )
+        row += 1
+        self._add_row(
+            row, 'Tilt (degrees):', self.tilt_var, 'tilt', self.tilt_anim_var
+        )
         row += 1
 
         # Timings (in ms)
@@ -110,21 +172,49 @@ class PropertiesPanel(ttk.LabelFrame):
         self._add_row(row, 'Formatted Text:', self.formatted_text_var)
         row += 1
 
-    def _add_row(self, row: int, label: str, var: tk.StringVar) -> None:
-        """Helper to add a text label and entry row.
+        # Embedded Animation Overview Panel (initially hidden)
+        self.anim_overview = AnimationOverviewPanel(
+            self.container,
+            self.config_manager,
+            on_keyframe_changed=self.on_update,
+        )
+
+    def _add_row(
+        self,
+        row: int,
+        label: str,
+        var: tk.StringVar,
+        key: str | None = None,
+        anim_var: tk.BooleanVar | None = None,
+    ) -> None:
+        """Helper to add a text label, entry, and optional animation toggle.
 
         Args:
             row: The row index.
             label: The label text.
             var: The tkinter StringVar to bind.
+            key: The key identifier for this property.
+            anim_var: The BooleanVar for animation state of this property.
         """
-        ttk.Label(self, text=label).grid(
+        ttk.Label(self.container, text=label).grid(
             row=row, column=0, sticky='w', padx=5, pady=3
         )
-        entry = ttk.Entry(self, textvariable=var)
+        entry = ttk.Entry(self.container, textvariable=var)
         entry.grid(row=row, column=1, sticky='ew', padx=5, pady=3)
         entry.bind('<FocusOut>', lambda e: self._apply_properties())
         entry.bind('<Return>', lambda e: self._apply_properties())
+
+        if key is not None:
+            entry.bind('<FocusIn>', lambda e: self._on_field_focus(key))
+
+        if anim_var is not None and key is not None:
+            chk = ttk.Checkbutton(
+                self.container,
+                text='Animate',
+                variable=anim_var,
+                command=lambda: self._toggle_anim(key),
+            )
+            chk.grid(row=row, column=2, sticky='w', padx=5, pady=3)
 
     def load_element(self, name: str | None) -> None:
         """Loads element configuration values into form variables.
@@ -145,11 +235,15 @@ class PropertiesPanel(ttk.LabelFrame):
         self._set_state(tk.NORMAL)
 
         # Set values
-        self.enabled_var.set(bool(el.get('enabled', False)))
-        self.x_var.set(f'{el.get("x", 0.0):.3f}')
-        self.y_var.set(f'{el.get("y", 0.0):.3f}')
+        enabled_val = self.config_manager.resolve_val(el.get('enabled', False))
+        self.enabled_var.set(bool(enabled_val))
 
-        extents = el.get('extents')
+        x_val = self.config_manager.resolve_val(el.get('x', 0.0))
+        y_val = self.config_manager.resolve_val(el.get('y', 0.0))
+        self.x_var.set(f'{x_val:.3f}' if x_val is not None else '')
+        self.y_var.set(f'{y_val:.3f}' if y_val is not None else '')
+
+        extents = self.config_manager.resolve_val(el.get('extents'))
         if extents and len(extents) >= 2:
             self.w_var.set(f'{extents[0]:.3f}')
             self.h_var.set(f'{extents[1]:.3f}')
@@ -157,17 +251,53 @@ class PropertiesPanel(ttk.LabelFrame):
             self.w_var.set('')
             self.h_var.set('')
 
-        self.align_var.set(el.get('align', 'left'))
+        align_val = self.config_manager.resolve_val(el.get('align', 'left'))
+        self.align_var.set(align_val if align_val is not None else 'left')
 
         style = el.get('style', {})
-        self.font_var.set(style.get('font', ''))
-        self.size_var.set(str(style.get('size', '')))
+        font_val = self.config_manager.resolve_val(style.get('font', ''))
+        size_val = self.config_manager.resolve_val(style.get('size', ''))
+        self.font_var.set(font_val if font_val is not None else '')
+        self.size_var.set(str(size_val) if size_val is not None else '')
 
-        self.start_ms_var.set(str(el.get('visible_start_ms', 0)))
-        self.end_ms_var.set(str(el.get('visible_end_ms', 0)))
-        self.fade_in_ms_var.set(str(el.get('fade_in_ms', 0)))
-        self.fade_out_ms_var.set(str(el.get('fade_out_ms', 0)))
-        self.formatted_text_var.set(el.get('formatted_text', ''))
+        tilt_val = self.config_manager.resolve_val(el.get('tilt', 0.0))
+        self.tilt_var.set(f'{tilt_val:.3f}' if tilt_val is not None else '')
+
+        start_val = self.config_manager.resolve_val(
+            el.get('visible_start_ms', 0)
+        )
+        end_val = self.config_manager.resolve_val(el.get('visible_end_ms', 0))
+        fade_in_val = self.config_manager.resolve_val(el.get('fade_in_ms', 0))
+        fade_out_val = self.config_manager.resolve_val(el.get('fade_out_ms', 0))
+
+        self.start_ms_var.set(str(start_val) if start_val is not None else '0')
+        self.end_ms_var.set(str(end_val) if end_val is not None else '0')
+        self.fade_in_ms_var.set(
+            str(fade_in_val) if fade_in_val is not None else '0'
+        )
+        self.fade_out_ms_var.set(
+            str(fade_out_val) if fade_out_val is not None else '0'
+        )
+
+        fmt_text = self.config_manager.resolve_val(el.get('formatted_text', ''))
+        self.formatted_text_var.set(fmt_text if fmt_text is not None else '')
+
+        # Set animation vars
+        self.x_anim_var.set(self.config_manager.is_prop_animated(name, 'x'))
+        self.y_anim_var.set(self.config_manager.is_prop_animated(name, 'y'))
+
+        ext_anim = self.config_manager.is_prop_animated(name, 'extents')
+        self.w_anim_var.set(ext_anim)
+        self.h_anim_var.set(ext_anim)
+
+        self.size_anim_var.set(
+            self.config_manager.is_prop_animated(name, 'size')
+        )
+        self.tilt_anim_var.set(
+            self.config_manager.is_prop_animated(name, 'tilt')
+        )
+
+        self._update_animation_overview_visibility()
 
     def clear(self) -> None:
         """Clears all input values and disables forms."""
@@ -179,13 +309,22 @@ class PropertiesPanel(ttk.LabelFrame):
         self.align_var.set('')
         self.font_var.set('')
         self.size_var.set('')
+        self.tilt_var.set('')
         self.start_ms_var.set('')
         self.end_ms_var.set('')
         self.fade_in_ms_var.set('')
         self.fade_out_ms_var.set('')
         self.formatted_text_var.set('')
 
+        self.x_anim_var.set(False)
+        self.y_anim_var.set(False)
+        self.w_anim_var.set(False)
+        self.h_anim_var.set(False)
+        self.size_anim_var.set(False)
+        self.tilt_anim_var.set(False)
+
         self._set_state(tk.DISABLED)
+        self._update_animation_overview_visibility()
 
     def _set_state(self, state: str) -> None:
         """Helper to set widgets enabled/disabled.
@@ -193,7 +332,7 @@ class PropertiesPanel(ttk.LabelFrame):
         Args:
             state: The widget state ('normal' or 'disabled').
         """
-        for child in self.winfo_children():
+        for child in self.container.winfo_children():
             if isinstance(child, ttk.Entry):
                 child['state'] = state
             elif isinstance(child, ttk.Combobox):
@@ -255,6 +394,7 @@ class PropertiesPanel(ttk.LabelFrame):
                 self.selected_element, 'font', font_str
             )
         self._apply_int(self.size_var, 'size')
+        self._apply_float(self.tilt_var, 'tilt')
 
         self._apply_int(self.start_ms_var, 'visible_start_ms')
         self._apply_int(self.end_ms_var, 'visible_end_ms')
@@ -299,3 +439,68 @@ class PropertiesPanel(ttk.LabelFrame):
                 )
             except ValueError:
                 pass
+
+    def _toggle_anim(self, key: str) -> None:
+        """Toggles animation for a property.
+
+        Args:
+            key: The property key.
+        """
+        if not self.selected_element:
+            return
+
+        new_state = self.config_manager.toggle_prop_animated(
+            self.selected_element, key
+        )
+
+        if key == 'x':
+            self.x_anim_var.set(new_state)
+        elif key == 'y':
+            self.y_anim_var.set(new_state)
+        elif key == 'extents':
+            self.w_anim_var.set(new_state)
+            self.h_anim_var.set(new_state)
+        elif key == 'size':
+            self.size_anim_var.set(new_state)
+        elif key == 'tilt':
+            self.tilt_anim_var.set(new_state)
+
+        self.on_update()
+        self._update_animation_overview_visibility()
+
+    def _on_field_focus(self, key: str) -> None:
+        """Handles focus on animatable properties to sync timeline graph selection.
+
+        Args:
+            key: The property key focused.
+        """
+        if self._is_any_prop_animated() and self.anim_overview.winfo_ismapped():
+            self.anim_overview.select_property(key)
+
+    def _is_any_prop_animated(self) -> bool:
+        """Checks if any property of the selected element is animated.
+
+        Returns:
+            bool: True if any property has animation enabled.
+        """
+        if not self.selected_element:
+            return False
+        return (
+            self.x_anim_var.get()
+            or self.y_anim_var.get()
+            or self.w_anim_var.get()
+            or self.h_anim_var.get()
+            or self.size_anim_var.get()
+            or self.tilt_anim_var.get()
+        )
+
+    def _update_animation_overview_visibility(self) -> None:
+        """Shows or hides the animation overview within properties panel."""
+        if self._is_any_prop_animated():
+            self.anim_overview.grid(
+                row=15, column=0, columnspan=3, sticky='ew', padx=5, pady=5
+            )
+            self.anim_overview.load_element(self.selected_element)
+        else:
+            self.anim_overview.grid_remove()
+            self.anim_overview.load_element(None)
