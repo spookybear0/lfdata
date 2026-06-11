@@ -1048,7 +1048,7 @@ class VisualElementGenerator:
         formatted_text = None
         if elem_type == 'text':
             formatted_text = el_config.get('formatted_text')
-            if formatted_text is None:
+            if formatted_text is None or formatted_text == '':
                 formatted_text = f'{{{{ {element_key} }}}}'
 
             local_vars = dict(self.current_variables)

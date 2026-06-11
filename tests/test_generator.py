@@ -1362,6 +1362,26 @@ def test_jinja_rendering_and_caching() -> None:
     assert res1 == 'PTS: 500'
     assert len(hud_gen_custom._jinja_cache) == initial_cache_len
 
+    # 5. Test empty string formatted_text defaults to variable name
+    config_empty = {
+        'elements': {
+            'player_score': {
+                'enabled': True,
+                'formatted_text': '',
+            },
+        }
+    }
+    hud_gen_empty = VisualElementGenerator(
+        game, 'CommanderA', config=config_empty
+    )
+    hud_gen_empty._get_state_at = lambda t: ({'P1': mock_player_state}, {})
+
+    elements_empty = hud_gen_empty.generate_at(2000)
+    el_score_empty = next(
+        el for el in elements_empty if el.formatted_text == '{{ player_score }}'
+    )
+    assert el_score_empty.text == '500'
+
 
 def test_visible_end_ms_zero_stays_visible() -> None:
     """Tests that visible_end_ms set to 0 defaults to the end of the video."""
