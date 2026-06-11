@@ -25,6 +25,7 @@ class LFDataUIApp(tk.Tk):
         """
         super().__init__()
         self.preferences_path = preferences_path
+        self.is_dirty = False
         self.title('LF Data Video UI Configurator')
         self.geometry('1180x820')
         self.minsize(1024, 768)
@@ -56,8 +57,12 @@ class LFDataUIApp(tk.Tk):
         file_menu.add_command(
             label='Save Configuration File', command=self._save_config
         )
+        file_menu.add_command(
+            label='Save Configuration File As...',
+            command=self._save_config_as,
+        )
         file_menu.add_separator()
-        file_menu.add_command(label='Exit', command=self.destroy)
+        file_menu.add_command(label='Exit', command=self._on_close)
 
     def _create_layout(self) -> None:
         """Sets up the grid layout divisions for the UI."""
@@ -329,6 +334,7 @@ class LFDataUIApp(tk.Tk):
         self.canvas.refresh_elements()
         self.properties.load_element(self.canvas.selected_element)
         self.preview.update_preview()
+        self._set_dirty(True)
 
     def _on_time_changed(self, time_ms: int) -> None:
         """Handles slider time changes to update canvas and properties panel.
@@ -341,24 +347,37 @@ class LFDataUIApp(tk.Tk):
 
     def _on_global_setting_changed(self) -> None:
         """Applies FPS and Resolution edits back to config."""
+        dirty = False
         try:
             fps = int(self.fps_var.get())
-            self.config_manager.update_global_setting('fps', fps)
+            if self.config_manager.config.get('fps') != fps:
+                self.config_manager.update_global_setting('fps', fps)
+                dirty = True
         except ValueError:
             pass
 
         try:
             w = int(self.width_var.get())
             h = int(self.height_var.get())
-            self.config_manager.update_global_setting('resolution', [w, h])
+            if self.config_manager.config.get('resolution') != [w, h]:
+                self.config_manager.update_global_setting('resolution', [w, h])
+                dirty = True
         except ValueError:
             pass
 
         try:
             delay = int(self.pregame_delay_ms_var.get())
-            self.config_manager.update_global_setting('pregame_delay_ms', delay)
+            curr = self.config_manager.config.get('pregame_delay_ms')
+            if curr != delay:
+                self.config_manager.update_global_setting(
+                    'pregame_delay_ms', delay
+                )
+                dirty = True
         except ValueError:
             pass
+
+        if dirty:
+            self._set_dirty(True)
 
     def _load_tdf_path(self, path: str) -> None:
         """Loads a TDF file path and updates the UI.
@@ -401,8 +420,11 @@ class LFDataUIApp(tk.Tk):
         self.canvas.select_element(None)
         self.canvas.refresh_elements()
         self.preview.update_preview()
-        self.lbl_status.config(text=f'Loaded config: {os.path.basename(path)}')
+        self.lbl_status.config(
+            text=f'Loaded config: {os.path.basename(path)}'
+        )
         self._save_preferences(config_path=path)
+        self._set_dirty(False)
 
     def _open_config(self) -> None:
         """Prompts user to load a YAML config file and updates UI elements."""
@@ -418,15 +440,41 @@ class LFDataUIApp(tk.Tk):
         except Exception as e:
             messagebox.showerror('Error Loading Config', str(e))
 
-    def _save_config(self) -> None:
-        """Prompts user to save current config to a YAML file."""
+    def _save_config(self) -> bool:
+        """Saves current configuration, overwriting if path exists.
+
+        Returns:
+            bool: True if saved successfully, False if cancelled or failed.
+        """
+        path = self.config_manager.config_path
+        if path:
+            try:
+                self.config_manager.save_config(path)
+                self.lbl_status.config(
+                    text=f'Saved config: {os.path.basename(path)}'
+                )
+                self._save_preferences(config_path=path)
+                self._set_dirty(False)
+                return True
+            except Exception as e:
+                messagebox.showerror('Error Saving Config', str(e))
+                return False
+        else:
+            return self._save_config_as()
+
+    def _save_config_as(self) -> bool:
+        """Prompts user for filename and saves current configuration.
+
+        Returns:
+            bool: True if saved successfully, False if cancelled or failed.
+        """
         path = filedialog.asksaveasfilename(
-            title='Save Configuration File',
+            title='Save Configuration File As',
             defaultextension='.yaml',
             filetypes=[('YAML Files', '*.yaml'), ('All Files', '*.*')],
         )
         if not path:
-            return
+            return False
 
         try:
             self.config_manager.save_config(path)
@@ -434,8 +482,11 @@ class LFDataUIApp(tk.Tk):
                 text=f'Saved config: {os.path.basename(path)}'
             )
             self._save_preferences(config_path=path)
+            self._set_dirty(False)
+            return True
         except Exception as e:
             messagebox.showerror('Error Saving Config', str(e))
+            return False
 
     def _get_preferences_path(self) -> Path:
         """Gets the path to the user preferences file.
@@ -522,11 +573,39 @@ class LFDataUIApp(tk.Tk):
 
     def _on_close(self) -> None:
         """Saves preferences and exits the application when closed."""
+        if self.config_manager.config_path and self.is_dirty:
+            res = messagebox.askyesnocancel(
+                'Unsaved Changes',
+                'You have unsaved changes to your configuration file. '
+                'Do you want to save them before exiting?'
+            )
+            if res is True:
+                if not self._save_config():
+                    return
+            elif res is None:
+                return
+
         try:
             self._save_preferences()
         except Exception:
             pass
         self.destroy()
+
+    def _set_dirty(self, value: bool) -> None:
+        """Sets the dirty (unsaved changes) state and updates title/status.
+
+        Args:
+            value: The new dirty state value.
+        """
+        self.is_dirty = value
+        title_base = 'LF Data Video UI Configurator'
+        path = self.config_manager.config_path
+        if path:
+            title_base = f'{title_base} - {os.path.basename(path)}'
+        if value:
+            self.title(f'{title_base} *')
+        else:
+            self.title(title_base)
 
     def _generate_video(self) -> None:
         """Triggers the video generation flow with path selection and background thread."""

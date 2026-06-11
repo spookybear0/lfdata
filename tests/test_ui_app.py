@@ -461,3 +461,220 @@ def test_app_load_preferences_on_startup(
 
     mock_load_config.assert_called_once_with(str(dummy_config))
     mock_load_tdf.assert_called_once_with(str(dummy_tdf))
+
+
+def test_app_set_dirty() -> None:
+    """Tests that setting dirty state updates the window title."""
+    app = LFDataUIApp()
+    # Mock title method to track calls
+    app.title = MagicMock()
+
+    # Base title is 'LF Data Video UI Configurator'
+    # Initially config_path is None, title should be base title
+    app.config_manager.config_path = None
+    app._set_dirty(True)
+    assert app.is_dirty is True
+    app.title.assert_called_with('LF Data Video UI Configurator *')
+
+    app._set_dirty(False)
+    assert app.is_dirty is False
+    app.title.assert_called_with('LF Data Video UI Configurator')
+
+    # With a config path loaded
+    app.config_manager.config_path = 'c:/dummy/my_config.yaml'
+    app._set_dirty(True)
+    assert app.is_dirty is True
+    app.title.assert_called_with(
+        'LF Data Video UI Configurator - my_config.yaml *'
+    )
+
+    app._set_dirty(False)
+    assert app.is_dirty is False
+    app.title.assert_called_with(
+        'LF Data Video UI Configurator - my_config.yaml'
+    )
+
+
+@patch.object(LFDataUIApp, '_save_preferences')
+def test_app_save_config_with_path(mock_save_pref: MagicMock) -> None:
+    """Tests saving the configuration file when a path is active."""
+    app = LFDataUIApp()
+    app.config_manager.config_path = 'c:/dummy/my_config.yaml'
+    app.config_manager.save_config = MagicMock()
+    app.lbl_status = MagicMock()
+    app._set_dirty(True)
+
+    result = app._save_config()
+
+    assert result is True
+    app.config_manager.save_config.assert_called_once_with(
+        'c:/dummy/my_config.yaml'
+    )
+    assert app.is_dirty is False
+    mock_save_pref.assert_called_once_with(
+        config_path='c:/dummy/my_config.yaml'
+    )
+
+
+@patch.object(LFDataUIApp, '_save_config_as')
+def test_app_save_config_no_path(mock_save_as: MagicMock) -> None:
+    """Tests saving the configuration file when no path is active."""
+    app = LFDataUIApp()
+    app.config_manager.config_path = None
+    mock_save_as.return_value = True
+
+    result = app._save_config()
+
+    assert result is True
+    mock_save_as.assert_called_once()
+
+
+@patch('tkinter.filedialog.asksaveasfilename')
+def test_app_save_config_as_cancel(mock_ask: MagicMock) -> None:
+    """Tests cancelling the Save As dialog."""
+    app = LFDataUIApp()
+    mock_ask.return_value = ''
+
+    result = app._save_config_as()
+
+    assert result is False
+
+
+@patch('tkinter.filedialog.asksaveasfilename')
+@patch.object(LFDataUIApp, '_save_preferences')
+def test_app_save_config_as_success(
+    mock_save_pref: MagicMock,
+    mock_ask: MagicMock,
+) -> None:
+    """Tests successfully saving a configuration with a new path."""
+    app = LFDataUIApp()
+    app.config_manager.save_config = MagicMock()
+    app.lbl_status = MagicMock()
+    app._set_dirty(True)
+    mock_ask.return_value = 'c:/dummy/new_config.yaml'
+
+    result = app._save_config_as()
+
+    assert result is True
+    app.config_manager.save_config.assert_called_once_with(
+        'c:/dummy/new_config.yaml'
+    )
+    assert app.is_dirty is False
+    mock_save_pref.assert_called_once_with(
+        config_path='c:/dummy/new_config.yaml'
+    )
+
+
+@patch.object(LFDataUIApp, 'destroy')
+@patch.object(LFDataUIApp, '_save_preferences')
+def test_app_on_close_not_dirty(
+    mock_save_pref: MagicMock,
+    mock_destroy: MagicMock,
+) -> None:
+    """Tests that closing when not dirty destroys the window directly."""
+    app = LFDataUIApp()
+    app.config_manager.config_path = 'c:/dummy/my_config.yaml'
+    app.is_dirty = False
+
+    app._on_close()
+
+    mock_destroy.assert_called_once()
+    mock_save_pref.assert_called_once()
+
+
+@patch('tkinter.messagebox.askyesnocancel')
+@patch.object(LFDataUIApp, '_save_config')
+@patch.object(LFDataUIApp, 'destroy')
+@patch.object(LFDataUIApp, '_save_preferences')
+def test_app_on_close_dirty_save_yes(
+    mock_save_pref: MagicMock,
+    mock_destroy: MagicMock,
+    mock_save_config: MagicMock,
+    mock_ask: MagicMock,
+) -> None:
+    """Tests closing when dirty, user selects Yes and save succeeds."""
+    app = LFDataUIApp()
+    app.config_manager.config_path = 'c:/dummy/my_config.yaml'
+    app.is_dirty = True
+    mock_ask.return_value = True  # Yes
+    mock_save_config.return_value = True  # Saved successfully
+
+    app._on_close()
+
+    mock_ask.assert_called_once()
+    mock_save_config.assert_called_once()
+    mock_save_pref.assert_called_once()
+    mock_destroy.assert_called_once()
+
+
+@patch('tkinter.messagebox.askyesnocancel')
+@patch.object(LFDataUIApp, '_save_config')
+@patch.object(LFDataUIApp, 'destroy')
+@patch.object(LFDataUIApp, '_save_preferences')
+def test_app_on_close_dirty_save_yes_fails(
+    mock_save_pref: MagicMock,
+    mock_destroy: MagicMock,
+    mock_save_config: MagicMock,
+    mock_ask: MagicMock,
+) -> None:
+    """Tests closing when dirty, user selects Yes but save fails."""
+    app = LFDataUIApp()
+    app.config_manager.config_path = 'c:/dummy/my_config.yaml'
+    app.is_dirty = True
+    mock_ask.return_value = True  # Yes
+    mock_save_config.return_value = False  # Save failed
+
+    app._on_close()
+
+    mock_ask.assert_called_once()
+    mock_save_config.assert_called_once()
+    mock_save_pref.assert_not_called()
+    mock_destroy.assert_not_called()
+
+
+@patch('tkinter.messagebox.askyesnocancel')
+@patch.object(LFDataUIApp, '_save_config')
+@patch.object(LFDataUIApp, 'destroy')
+@patch.object(LFDataUIApp, '_save_preferences')
+def test_app_on_close_dirty_discard_no(
+    mock_save_pref: MagicMock,
+    mock_destroy: MagicMock,
+    mock_save_config: MagicMock,
+    mock_ask: MagicMock,
+) -> None:
+    """Tests closing when dirty, user selects No to discard changes."""
+    app = LFDataUIApp()
+    app.config_manager.config_path = 'c:/dummy/my_config.yaml'
+    app.is_dirty = True
+    mock_ask.return_value = False  # No/Discard
+
+    app._on_close()
+
+    mock_ask.assert_called_once()
+    mock_save_config.assert_not_called()
+    mock_save_pref.assert_called_once()
+    mock_destroy.assert_called_once()
+
+
+@patch('tkinter.messagebox.askyesnocancel')
+@patch.object(LFDataUIApp, '_save_config')
+@patch.object(LFDataUIApp, 'destroy')
+@patch.object(LFDataUIApp, '_save_preferences')
+def test_app_on_close_dirty_cancel(
+    mock_save_pref: MagicMock,
+    mock_destroy: MagicMock,
+    mock_save_config: MagicMock,
+    mock_ask: MagicMock,
+) -> None:
+    """Tests closing when dirty, user selects Cancel to abort closing."""
+    app = LFDataUIApp()
+    app.config_manager.config_path = 'c:/dummy/my_config.yaml'
+    app.is_dirty = True
+    mock_ask.return_value = None  # Cancel
+
+    app._on_close()
+
+    mock_ask.assert_called_once()
+    mock_save_config.assert_not_called()
+    mock_save_pref.assert_not_called()
+    mock_destroy.assert_not_called()
