@@ -903,9 +903,7 @@ class VisualElementGenerator:
         """
         variables = {
             'game_type': f'Game Type: {self.game.game_type}',
-            'normalized_game_type': (
-                f'Game Type: {self.game.normalized_game_type or ""}'
-            ),
+            'normalized_game_type': self.game.normalized_game_type or '',
         }
 
         # Date of the game
@@ -1267,7 +1265,7 @@ class VisualElementGenerator:
 
         el_norm_game_type = self._create_ui_element(
             'normalized_game_type',
-            text=f'Game Type: {self.game.normalized_game_type or ""}',
+            text=self.game.normalized_game_type or '',
             element_type='text',
         )
         if el_norm_game_type:

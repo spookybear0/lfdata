@@ -1239,7 +1239,7 @@ def test_normalized_game_type_element() -> None:
         (
             el
             for el in elements_enabled
-            if el.element_type == 'text' and el.text == 'Game Type: SM5'
+            if el.element_type == 'text' and el.text == 'SM5'
         ),
         None,
     )
