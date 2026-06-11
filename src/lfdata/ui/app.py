@@ -420,9 +420,7 @@ class LFDataUIApp(tk.Tk):
         self.canvas.select_element(None)
         self.canvas.refresh_elements()
         self.preview.update_preview()
-        self.lbl_status.config(
-            text=f'Loaded config: {os.path.basename(path)}'
-        )
+        self.lbl_status.config(text=f'Loaded config: {os.path.basename(path)}')
         self._save_preferences(config_path=path)
         self._set_dirty(False)
 
@@ -468,10 +466,16 @@ class LFDataUIApp(tk.Tk):
         Returns:
             bool: True if saved successfully, False if cancelled or failed.
         """
+        curr_path = self.config_manager.config_path
+        initial_dir = os.path.dirname(curr_path) if curr_path else None
+        initial_file = os.path.basename(curr_path) if curr_path else None
+
         path = filedialog.asksaveasfilename(
             title='Save Configuration File As',
             defaultextension='.yaml',
             filetypes=[('YAML Files', '*.yaml'), ('All Files', '*.*')],
+            initialdir=initial_dir,
+            initialfile=initial_file,
         )
         if not path:
             return False
@@ -577,7 +581,7 @@ class LFDataUIApp(tk.Tk):
             res = messagebox.askyesnocancel(
                 'Unsaved Changes',
                 'You have unsaved changes to your configuration file. '
-                'Do you want to save them before exiting?'
+                'Do you want to save them before exiting?',
             )
             if res is True:
                 if not self._save_config():

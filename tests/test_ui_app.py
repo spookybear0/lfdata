@@ -548,6 +548,7 @@ def test_app_save_config_as_success(
 ) -> None:
     """Tests successfully saving a configuration with a new path."""
     app = LFDataUIApp()
+    app.config_manager.config_path = 'c:/dummy/my_config.yaml'
     app.config_manager.save_config = MagicMock()
     app.lbl_status = MagicMock()
     app._set_dirty(True)
@@ -556,6 +557,13 @@ def test_app_save_config_as_success(
     result = app._save_config_as()
 
     assert result is True
+    mock_ask.assert_called_once_with(
+        title='Save Configuration File As',
+        defaultextension='.yaml',
+        filetypes=[('YAML Files', '*.yaml'), ('All Files', '*.*')],
+        initialdir='c:/dummy',
+        initialfile='my_config.yaml',
+    )
     app.config_manager.save_config.assert_called_once_with(
         'c:/dummy/new_config.yaml'
     )
