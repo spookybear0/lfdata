@@ -336,3 +336,31 @@ def test_properties_apply(manager: UIConfigManager) -> None:
     panel._toggle_anim('x')
     assert panel.x_anim_var.get() is False
     assert panel.anim_overview.winfo_ismapped() is False
+
+
+def test_properties_start_time_offset(manager: UIConfigManager) -> None:
+    """Tests loading, clearing, and applying start_time_offset."""
+    parent = MagicMock()
+    panel = PropertiesPanel(parent, manager, lambda: None)
+
+    # 1. Load element (default value check)
+    panel.load_element('time')
+    assert panel.start_time_offset_var.get() == 'beginning of video'
+
+    # 2. Change start_time_offset combobox selection
+    panel.start_time_offset_var.set('beginning of game')
+    # Trigger selection handler
+    panel._on_start_time_offset_select(MagicMock())
+
+    el = manager.get_element('time')
+    assert el is not None
+    assert el.get('start_time_offset') == 'beginning of game'
+
+    # 3. Apply properties saving it
+    panel.start_time_offset_var.set('end of game')
+    panel._apply_properties()
+    assert el.get('start_time_offset') == 'end of game'
+
+    # 4. Clear panel resets value
+    panel.clear()
+    assert panel.start_time_offset_var.get() == ''

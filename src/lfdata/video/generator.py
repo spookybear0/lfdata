@@ -1277,15 +1277,29 @@ class VisualElementGenerator:
             extra_footage_ms = self.config.get('extra_footage_ms', 10000)
             video_end_ms = actual_duration_ms + extra_footage_ms + pregame_delay
 
-        visible_start = kwargs_copy.pop(
+        offset_setting = kwargs_copy.pop(
+            'start_time_offset',
+            el_config.get('start_time_offset', 'beginning of video'),
+        )
+        offset = 0
+        if offset_setting == 'beginning of game':
+            offset = pregame_delay
+        elif offset_setting == 'end of game':
+            offset = pregame_delay + actual_duration_ms
+
+        raw_start = kwargs_copy.pop(
             'visible_start_ms',
-            el_config.get('visible_start_ms', pregame_delay),
+            el_config.get('visible_start_ms', 0),
         )
-        visible_end = kwargs_copy.pop(
+        visible_start = raw_start + offset
+
+        raw_end = kwargs_copy.pop(
             'visible_end_ms',
-            el_config.get('visible_end_ms', video_end_ms),
+            el_config.get('visible_end_ms', 0),
         )
-        if visible_end is None or visible_end == 0:
+        if raw_end != 0:
+            visible_end = raw_end + offset
+        else:
             visible_end = video_end_ms
         fade_in = kwargs_copy.pop(
             'fade_in_ms',

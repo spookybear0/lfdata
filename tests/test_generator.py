@@ -1941,3 +1941,71 @@ def test_generator_bundle_zap_events() -> None:
     assert len(gen_disabled.player_event_log) == 2
     assert gen_disabled.player_event_log[0]['desc'] == '■■□ Zapped Player2'
     assert gen_disabled.player_event_log[1]['desc'] == '■□□ Zapped Player2'
+
+
+def test_generator_start_time_offset() -> None:
+    """Verifies that visible_start_ms is calculated relative to offsets."""
+    from datetime import datetime
+    from lfdata.model import LFGame
+    from lfdata.video import VisualElementGenerator
+
+    game = LFGame(
+        game_id='test_offset_game',
+        timestamp=datetime.now(),
+        game_type='SM5',
+        duration=100000,
+    )
+    # pregame_delay_ms = 5000, game duration = 100000
+    config = {
+        'pregame_delay_ms': 5000,
+        'elements': {
+            'el_video': {
+                'enabled': True,
+                'start_time_offset': 'beginning of video',
+                'visible_start_ms': 1000,
+                'visible_end_ms': 20000,
+            },
+            'el_game': {
+                'enabled': True,
+                'start_time_offset': 'beginning of game',
+                'visible_start_ms': 1000,
+                'visible_end_ms': 20000,
+            },
+            'el_end': {
+                'enabled': True,
+                'start_time_offset': 'end of game',
+                'visible_start_ms': -1000,
+                'visible_end_ms': 5000,
+            },
+            'el_default': {
+                'enabled': True,
+                'visible_start_ms': 1000,
+            },
+        },
+    }
+    gen = VisualElementGenerator(game, config=config)
+
+    # 1. beginning of video offset (offset = 0)
+    # visible_start_ms = 1000, visible_end_ms = 20000
+    el_video = gen._create_ui_element('el_video', element_type='text')
+    assert el_video.visible_start_ms == 1000
+    assert el_video.visible_end_ms == 20000
+
+    # 2. beginning of game offset (offset = 5000)
+    # visible_start_ms = 1000 + 5000 = 6000
+    # visible_end_ms = 20000 + 5000 = 25000
+    el_game = gen._create_ui_element('el_game', element_type='text')
+    assert el_game.visible_start_ms == 6000
+    assert el_game.visible_end_ms == 25000
+
+    # 3. end of game offset (offset = 5000 + 100000 = 105000)
+    # visible_start_ms = -1000 + 105000 = 104000
+    # visible_end_ms = 5000 + 105000 = 110000
+    el_end = gen._create_ui_element('el_end', element_type='text')
+    assert el_end.visible_start_ms == 104000
+    assert el_end.visible_end_ms == 110000
+
+    # 4. default offset is beginning of video
+    # visible_start_ms = 1000, visible_end_ms = video_end_ms
+    el_default = gen._create_ui_element('el_default', element_type='text')
+    assert el_default.visible_start_ms == 1000
