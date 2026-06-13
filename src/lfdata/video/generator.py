@@ -12,7 +12,19 @@ import jinja2
 from lfdata.model import GameEvent, LFGame, LFRole
 from lfdata.replay import LFReplaySystem
 from lfdata.replay.state import LFReplayPlayerState, LFReplayTeamState
-from lfdata.video.element import UIElement, UIElementStyle
+from lfdata.video.element import (
+    LFCameraShake,
+    LFEventLogEntry,
+    LFMultilineSlot,
+    LFPlayerEventLogEntry,
+    LFPlayerEventUpdate,
+    LFScoreboardData,
+    LFScoreboardPlayerData,
+    LFScoreboardTeamData,
+    LFScoreboardTeamTotals,
+    UIElement,
+    UIElementStyle,
+)
 from lfdata.video.helpers import (
     DEFAULT_CONFIG,
     LFTeamTransition,
@@ -63,8 +75,8 @@ def _normalize_player_name(name: str) -> str:
         str: The normalized alphanumeric lowercase string.
     """
     name = name.lower()
-    name = name.replace('&nbsp;', '')
-    return ''.join(c for c in name if c.isalnum())
+    name = name.replace("&nbsp;", "")
+    return "".join(c for c in name if c.isalnum())
 
 
 class VisualElementGenerator:
@@ -95,7 +107,7 @@ class VisualElementGenerator:
             self.config = _merge_configs(DEFAULT_CONFIG, config)
 
         if self.player_name:
-            self.config['player_name'] = self.player_name
+            self.config["player_name"] = self.player_name
 
         self.snapshots: list[
             tuple[
@@ -104,8 +116,8 @@ class VisualElementGenerator:
                 dict[int, LFReplayTeamState],
             ]
         ] = []
-        self.event_log: list[dict[str, Any]] = []
-        self.player_event_log: list[dict[str, Any]] = []
+        self.event_log: list[LFEventLogEntry] = []
+        self.player_event_log: list[LFPlayerEventLogEntry] = []
         self._last_ammo_resup: LFResupplyTracker | None = None
         self._last_medic_resup: LFResupplyTracker | None = None
         self._last_ammo_resup_by_me: dict[str, int] = {}
@@ -115,13 +127,11 @@ class VisualElementGenerator:
         self.current_time_ms: int = 0
 
         self._jinja_env = jinja2.Environment()
-        self._jinja_cache: dict[
-            tuple[str, frozenset[tuple[str, str]]], str
-        ] = {}
+        self._jinja_cache: dict[tuple[str, frozenset[tuple[str, str]]], str] = {}
         self.current_variables: dict[str, str] = {}
 
         self._precompute_replay()
-        self.camera_shakes: list[dict[str, Any]] = []
+        self.camera_shakes: list[LFCameraShake] = []
         self.nuke_flashes: list[int] = []
         self.missile_flashes_ms: list[int] = []
         self._detect_camera_shakes()
@@ -136,7 +146,7 @@ class VisualElementGenerator:
             return None
         norm_search = _normalize_player_name(self.player_name)
         for entity in self.game.entities:
-            if entity.type == 'player':
+            if entity.type == "player":
                 if _normalize_player_name(entity.desc) == norm_search:
                     self.player_name = entity.desc
                     return entity.entity_id
@@ -198,9 +208,7 @@ class VisualElementGenerator:
             event_time_ms: The current event timestamp in milliseconds.
             eliminated_teams: The set of already eliminated team indices.
         """
-        active_teams = {
-            p.team_index for p in replay.game_state.players.values()
-        }
+        active_teams = {p.team_index for p in replay.game_state.players.values()}
         for team_idx in active_teams:
             if team_idx not in eliminated_teams:
                 team_players = [
@@ -208,19 +216,17 @@ class VisualElementGenerator:
                     for p in replay.game_state.players.values()
                     if p.team_index == team_idx
                 ]
-                if team_players and all(
-                    p.is_eliminated() for p in team_players
-                ):
+                if team_players and all(p.is_eliminated() for p in team_players):
                     eliminated_teams.add(team_idx)
                     team_name = replay.game_state.teams[team_idx].name
                     self.event_log.append(
-                        {
-                            'time': event_time_ms,
-                            'desc': f'Team {team_name} Eliminated',
-                            'is_important': False,
-                            'actor_id': None,
-                            'target_id': None,
-                        }
+                        LFEventLogEntry(
+                            time=event_time_ms,
+                            desc=f"Team {team_name} Eliminated",
+                            is_important=False,
+                            actor_id=None,
+                            target_id=None,
+                        )
                     )
 
     def _track_rank_transitions(
@@ -241,7 +247,7 @@ class VisualElementGenerator:
             last_trans_time_ms: Dictionary mapping team ID to last transition.
             visual_rank_at_last_trans: Dictionary mapping team ID to its rank.
         """
-        anim = self.config.get('animation', 'ease-in-out')
+        anim = self.config.get("animation", "ease-in-out")
         for tid, t in replay.game_state.teams.items():
             if t.ranking != team_ranks[tid]:
                 t_last_ms = last_trans_time_ms[tid]
@@ -294,9 +300,7 @@ class VisualElementGenerator:
             )
         )
 
-        team_ranks = {
-            tid: t.ranking for tid, t in replay.game_state.teams.items()
-        }
+        team_ranks = {tid: t.ranking for tid, t in replay.game_state.teams.items()}
         self.team_transitions = {tid: [] for tid in team_ranks}
         last_trans_time_ms = {tid: 0 for tid in team_ranks}
         visual_rank_at_last_trans = {
@@ -353,19 +357,19 @@ class VisualElementGenerator:
             )
 
             is_important = event.event_type in [
-                '0404',
-                '0405',
-                'nuke_cancel',
+                "0404",
+                "0405",
+                "nuke_cancel",
             ]
-            if desc and 'misses' not in desc:
+            if desc and "misses" not in desc:
                 self.event_log.append(
-                    {
-                        'time': event.time,
-                        'desc': desc,
-                        'is_important': is_important,
-                        'actor_id': event.actor_entity_id,
-                        'target_id': event.target_entity_id,
-                    }
+                    LFEventLogEntry(
+                        time=event.time,
+                        desc=desc,
+                        is_important=is_important,
+                        actor_id=event.actor_entity_id,
+                        target_id=event.target_entity_id,
+                    )
                 )
 
             self._process_hud_event_triggers(event, replay, desc)
@@ -377,7 +381,7 @@ class VisualElementGenerator:
                 last_trans_time_ms=last_trans_time_ms,
                 visual_rank_at_last_trans=visual_rank_at_last_trans,
             )
-            if event.event_type == '0101':
+            if event.event_type == "0101":
                 replay.game_ended_at_ms = event.time
                 break
 
@@ -404,16 +408,14 @@ class VisualElementGenerator:
         self.game_ended_at_ms = replay.game_ended_at_ms
         self._precompute_nuke_intervals(sorted_events)
 
-    def _precompute_nuke_intervals(
-        self, sorted_events: list[GameEvent]
-    ) -> None:
+    def _precompute_nuke_intervals(self, sorted_events: list[GameEvent]) -> None:
         """Precomputes active nuke intervals during the game.
 
         Args:
             sorted_events: Chronologically sorted game events list.
         """
         self.nuke_intervals: list[LFNukeInterval] = []
-        activations = [ev for ev in sorted_events if ev.event_type == '0404']
+        activations = [ev for ev in sorted_events if ev.event_type == "0404"]
 
         for act in activations:
             nuker_id = act.actor_entity_id
@@ -426,15 +428,13 @@ class VisualElementGenerator:
 
             for ev in sorted_events:
                 if ev.time > t_start and ev.actor_entity_id == nuker_id:
-                    if ev.event_type in ('0405', 'nuke_cancel'):
+                    if ev.event_type in ("0405", "nuke_cancel"):
                         t_end = ev.time
                         break
 
             nuker_name = self.entity_names.get(nuker_id, nuker_id)
             self.nuke_intervals.append(
-                LFNukeInterval(
-                    start_ms=t_start, end_ms=t_end, nuker_name=nuker_name
-                )
+                LFNukeInterval(start_ms=t_start, end_ms=t_end, nuker_name=nuker_name)
             )
 
     def _process_hud_event_triggers(
@@ -457,8 +457,8 @@ class VisualElementGenerator:
         actor_id = event.actor_entity_id
         target_id = event.target_entity_id
 
-        actor_name = self.entity_names.get(actor_id or '', actor_id or '')
-        target_name = self.entity_names.get(target_id or '', target_id or '')
+        actor_name = self.entity_names.get(actor_id or "", actor_id or "")
+        target_name = self.entity_names.get(target_id or "", target_id or "")
 
         if self.entity_id:
             msg = None
@@ -466,45 +466,44 @@ class VisualElementGenerator:
             target_color_override = None
             et = event.event_type
 
-            if et in ('0205', '0206', '0207', '0208'):
+            if et in ("0205", "0206", "0207", "0208"):
                 target_state = None
                 if actor_id == self.entity_id:
-                    t_state = replay.game_state.players.get(target_id or '')
+                    t_state = replay.game_state.players.get(target_id or "")
                     self_state = replay.game_state.players.get(self.entity_id)
                     if t_state and self_state:
                         target_state = t_state
                         if t_state.team_index == self_state.team_index:
-                            msg = f'FRIENDLY zap {target_name}'
+                            msg = f"FRIENDLY zap {target_name}"
                         else:
-                            msg = f'Zapped {target_name}'
+                            msg = f"Zapped {target_name}"
                 elif target_id == self.entity_id:
-                    a_state = replay.game_state.players.get(actor_id or '')
+                    a_state = replay.game_state.players.get(actor_id or "")
                     self_state = replay.game_state.players.get(self.entity_id)
                     if a_state and self_state:
                         target_state = self_state
                         if a_state.team_index == self_state.team_index:
-                            msg = f'FRIENDLY zap by {actor_name}'
+                            msg = f"FRIENDLY zap by {actor_name}"
                         else:
-                            msg = f'Zapped by {actor_name}'
+                            msg = f"Zapped by {actor_name}"
 
                 if msg and target_state:
                     base_msg = msg
-                    show_hp = self.config.get('show_hit_points_in_events', True)
-                    bundle = self.config.get('bundle_zap_events', True)
+                    show_hp = self.config.get("show_hit_points_in_events", True)
+                    bundle = self.config.get("bundle_zap_events", True)
                     is_bundled = False
                     if bundle and self.player_event_log:
                         last_event = self.player_event_log[-1]
                         if (
-                            last_event.get('event_type')
-                            in ('0205', '0206', '0207', '0208')
-                            and last_event.get('actor_id') == actor_id
-                            and last_event.get('target_id') == target_id
+                            last_event.event_type in ("0205", "0206", "0207", "0208")
+                            and last_event.actor_id == actor_id
+                            and last_event.target_id == target_id
                         ):
-                            count = last_event.get('zap_count', 1) + 1
-                            last_event['zap_count'] = count
+                            count = last_event.zap_count + 1
+                            last_event.zap_count = count
 
                             multiplied_msg = self._insert_zap_multiplier(
-                                last_event.get('base_desc', base_msg),
+                                last_event.base_desc or base_msg,
                                 count,
                             )
 
@@ -512,43 +511,33 @@ class VisualElementGenerator:
                             if show_hp and target_state.max_hp > 1:
                                 hp = target_state.hp
                                 max_hp = target_state.max_hp
-                                boxes = '■' * hp + '□' * (max_hp - hp)
-                                updated_full_msg = f'{boxes} {multiplied_msg}'
+                                boxes = "■" * hp + "□" * (max_hp - hp)
+                                updated_full_msg = f"{boxes} {multiplied_msg}"
                                 t_team = replay.game_state.teams.get(
                                     target_state.team_index
                                 )
-                                t_color = (
-                                    t_team.color_rgb if t_team else '#ffffff'
-                                )
+                                t_color = t_team.color_rgb if t_team else "#ffffff"
                                 new_target_color_override = {boxes: t_color}
                             else:
                                 updated_full_msg = multiplied_msg
 
-                            if 'updates' not in last_event:
-                                last_event['updates'] = []
-
-                            update_entry = {
-                                'time': event.time,
-                                'desc': updated_full_msg,
-                            }
-                            if new_target_color_override:
-                                update_entry['target_color_override'] = (
-                                    new_target_color_override
-                                )
-                            last_event['updates'].append(update_entry)
-
-                            el_config = self.config.get('elements', {}).get(
-                                'player_events', {}
+                            update_entry = LFPlayerEventUpdate(
+                                time=event.time,
+                                desc=updated_full_msg,
+                                target_color_override=new_target_color_override,
                             )
-                            fade_time_s = el_config.get('fade_out_time')
+                            last_event.updates.append(update_entry)
+
+                            el_config = self.config.get("elements", {}).get(
+                                "player_events", {}
+                            )
+                            fade_time_s = el_config.get("fade_out_time")
                             if fade_time_s is None:
-                                fade_time_s = self.config.get(
-                                    'fade_out_time', 3.0
-                                )
+                                fade_time_s = self.config.get("fade_out_time", 3.0)
                             fade_time_ms = int(fade_time_s * 1000)
 
-                            last_event['duration'] = (
-                                event.time - last_event['time']
+                            last_event.duration = (
+                                event.time - last_event.time
                             ) + fade_time_ms
 
                             msg = None
@@ -558,46 +547,46 @@ class VisualElementGenerator:
                         if show_hp and target_state.max_hp > 1:
                             hp = target_state.hp
                             max_hp = target_state.max_hp
-                            boxes = '■' * hp + '□' * (max_hp - hp)
-                            msg = f'{boxes} {msg}'
+                            boxes = "■" * hp + "□" * (max_hp - hp)
+                            msg = f"{boxes} {msg}"
                             t_team = replay.game_state.teams.get(
                                 target_state.team_index
                             )
-                            t_color = t_team.color_rgb if t_team else '#ffffff'
+                            t_color = t_team.color_rgb if t_team else "#ffffff"
                             target_color_override = {boxes: t_color}
 
-            elif et == '0300':
+            elif et == "0300":
                 if actor_id == self.entity_id:
-                    t_state = replay.game_state.players.get(target_id or '')
+                    t_state = replay.game_state.players.get(target_id or "")
                     self_state = replay.game_state.players.get(self.entity_id)
                     if t_state and self_state:
                         if t_state.team_index == self_state.team_index:
-                            msg = f'FRIENDLY lock {target_name}'
+                            msg = f"FRIENDLY lock {target_name}"
                         else:
-                            msg = f'Locking {target_name}'
+                            msg = f"Locking {target_name}"
                     else:
-                        msg = f'Locking {target_name}'
+                        msg = f"Locking {target_name}"
                 elif target_id == self.entity_id:
-                    a_state = replay.game_state.players.get(actor_id or '')
+                    a_state = replay.game_state.players.get(actor_id or "")
                     self_state = replay.game_state.players.get(self.entity_id)
                     if a_state and self_state:
                         if a_state.team_index == self_state.team_index:
-                            msg = f'FRIENDLY lock by {actor_name}'
+                            msg = f"FRIENDLY lock by {actor_name}"
                         else:
-                            msg = f'Locked by {actor_name}'
+                            msg = f"Locked by {actor_name}"
                     else:
-                        msg = f'Locked by {actor_name}'
+                        msg = f"Locked by {actor_name}"
 
-            elif et in ('0306', '0308', '0304', '0301', '0302', '0303'):
+            elif et in ("0306", "0308", "0304", "0301", "0302", "0303"):
                 found_lock = None
                 for ev_entry in reversed(self.player_event_log):
                     if (
-                        ev_entry.get('event_type') == '0300'
-                        and ev_entry.get('actor_id') == actor_id
-                        and 'follow_up_time' not in ev_entry
+                        ev_entry.event_type == "0300"
+                        and ev_entry.actor_id == actor_id
+                        and ev_entry.follow_up_time is None
                     ):
                         if target_id is not None:
-                            if ev_entry.get('target_id') == target_id:
+                            if ev_entry.target_id == target_id:
                                 found_lock = ev_entry
                                 break
                         else:
@@ -605,88 +594,66 @@ class VisualElementGenerator:
                             break
 
                 follow_up_msg = None
-                if et == '0306':
+                if et == "0306":
                     if actor_id == self.entity_id:
-                        t_state = replay.game_state.players.get(target_id or '')
-                        self_state = replay.game_state.players.get(
-                            self.entity_id
-                        )
+                        t_state = replay.game_state.players.get(target_id or "")
+                        self_state = replay.game_state.players.get(self.entity_id)
                         if t_state and self_state:
                             if t_state.team_index == self_state.team_index:
-                                follow_up_msg = (
-                                    f'FRIENDLY missile {target_name}'
-                                )
+                                follow_up_msg = f"FRIENDLY missile {target_name}"
                             else:
-                                follow_up_msg = f'Missiled {target_name}'
+                                follow_up_msg = f"Missiled {target_name}"
                     elif target_id == self.entity_id:
-                        a_state = replay.game_state.players.get(actor_id or '')
-                        self_state = replay.game_state.players.get(
-                            self.entity_id
-                        )
+                        a_state = replay.game_state.players.get(actor_id or "")
+                        self_state = replay.game_state.players.get(self.entity_id)
                         if a_state and self_state:
                             if a_state.team_index == self_state.team_index:
-                                follow_up_msg = (
-                                    f'FRIENDLY missile by {actor_name}'
-                                )
+                                follow_up_msg = f"FRIENDLY missile by {actor_name}"
                             else:
-                                follow_up_msg = f'Missiled by {actor_name}'
-                elif et == '0308':
+                                follow_up_msg = f"Missiled by {actor_name}"
+                elif et == "0308":
                     if actor_id == self.entity_id:
-                        follow_up_msg = f'FRIENDLY missile {target_name}'
+                        follow_up_msg = f"FRIENDLY missile {target_name}"
                     elif target_id == self.entity_id:
-                        follow_up_msg = f'FRIENDLY missile by {actor_name}'
-                elif et == '0304':
+                        follow_up_msg = f"FRIENDLY missile by {actor_name}"
+                elif et == "0304":
                     if actor_id == self.entity_id:
-                        follow_up_msg = 'Missile MISSES'
+                        follow_up_msg = "Missile MISSES"
                     else:
-                        if (
-                            found_lock
-                            and found_lock.get('target_id') == self.entity_id
-                        ):
-                            a_state = replay.game_state.players.get(
-                                actor_id or ''
-                            )
-                            self_state = replay.game_state.players.get(
-                                self.entity_id
-                            )
+                        if found_lock and found_lock.target_id == self.entity_id:
+                            a_state = replay.game_state.players.get(actor_id or "")
+                            self_state = replay.game_state.players.get(self.entity_id)
                             if a_state and self_state:
                                 if a_state.team_index == self_state.team_index:
                                     follow_up_msg = (
-                                        f'FRIENDLY missile from {actor_name} '
-                                        'MISSES'
+                                        f"FRIENDLY missile from {actor_name} " "MISSES"
                                     )
                                 else:
-                                    follow_up_msg = (
-                                        f'Missile from {actor_name} MISSES'
-                                    )
-                elif et in ('0301', '0302', '0303'):
+                                    follow_up_msg = f"Missile from {actor_name} MISSES"
+                elif et in ("0301", "0302", "0303"):
                     if actor_id == self.entity_id:
-                        if et == '0301':
-                            follow_up_msg = f'Missile misses {target_name}'
+                        if et == "0301":
+                            follow_up_msg = f"Missile misses {target_name}"
                         else:
-                            follow_up_msg = f'Missiled {target_name}'
+                            follow_up_msg = f"Missiled {target_name}"
 
                 if found_lock and follow_up_msg:
-                    el_config = self.config.get('elements', {}).get(
-                        'player_events', {}
-                    )
-                    fade_time_s = el_config.get('fade_out_time')
+                    el_config = self.config.get("elements", {}).get("player_events", {})
+                    fade_time_s = el_config.get("fade_out_time")
                     if fade_time_s is None:
-                        fade_time_s = self.config.get('fade_out_time', 3.0)
+                        fade_time_s = self.config.get("fade_out_time", 3.0)
                     fade_time_ms = int(fade_time_s * 1000)
 
-                    found_lock['follow_up_desc'] = follow_up_msg
-                    found_lock['follow_up_time'] = event.time
-                    found_lock['duration'] = (
-                        event.time - found_lock['time']
-                    ) + fade_time_ms
+                    found_lock.follow_up_desc = follow_up_msg
+                    found_lock.follow_up_time = event.time
+                    found_lock.duration = (event.time - found_lock.time) + fade_time_ms
                 elif follow_up_msg:
-                    if et in ('0306', '0308') or (
-                        et == '0304' and actor_id == self.entity_id
+                    if et in ("0306", "0308") or (
+                        et == "0304" and actor_id == self.entity_id
                     ):
                         msg = follow_up_msg
 
-            elif et in ('0500', '0502'):
+            elif et in ("0500", "0502"):
                 msg = self._process_hud_resupply_event(
                     event=event,
                     et=et,
@@ -696,7 +663,7 @@ class VisualElementGenerator:
                     target_name=target_name,
                 )
 
-            elif et in ('0510', '0512'):
+            elif et in ("0510", "0512"):
                 msg = self._process_hud_boost_event(
                     event=event,
                     et=et,
@@ -707,18 +674,17 @@ class VisualElementGenerator:
                 )
 
             if msg:
-                log_entry = {
-                    'time': event.time,
-                    'desc': msg,
-                    'actor_id': actor_id,
-                    'target_id': target_id,
-                    'event_type': et,
-                }
-                if target_color_override:
-                    log_entry['target_color_override'] = target_color_override
-                if et in ('0205', '0206', '0207', '0208'):
-                    log_entry['base_desc'] = base_msg
-                    log_entry['zap_count'] = 1
+                log_entry = LFPlayerEventLogEntry(
+                    time=event.time,
+                    desc=msg,
+                    actor_id=actor_id,
+                    target_id=target_id,
+                    event_type=et,
+                    target_color_override=target_color_override,
+                )
+                if et in ("0205", "0206", "0207", "0208"):
+                    log_entry.base_desc = base_msg
+                    log_entry.zap_count = 1
                 self.player_event_log.append(log_entry)
 
         for pid, player in replay.game_state.players.items():
@@ -729,50 +695,47 @@ class VisualElementGenerator:
             if prev_player.lives > 0 and player.lives == 0:
                 p_name = self.entity_names.get(pid, pid)
                 self.event_log.append(
-                    {
-                        'time': event.time,
-                        'desc': f'{p_name} eliminated',
-                        'is_important': True,
-                        'actor_id': None,
-                        'target_id': pid,
-                    }
+                    LFEventLogEntry(
+                        time=event.time,
+                        desc=f"{p_name} eliminated",
+                        is_important=True,
+                        actor_id=None,
+                        target_id=pid,
+                    )
                 )
 
             elif (
                 player.role == LFRole.MEDIC
                 and player.lives < prev_player.lives
                 and player.lives > 0
-                and any(
-                    val % 5 == 0
-                    for val in range(player.lives, prev_player.lives)
-                )
+                and any(val % 5 == 0 for val in range(player.lives, prev_player.lives))
             ):
                 p_name = self.entity_names.get(pid, pid)
-                desc = f'Medic {p_name} has {player.lives} lives left'
+                desc = f"Medic {p_name} has {player.lives} lives left"
                 self.event_log.append(
-                    {
-                        'time': event.time,
-                        'desc': desc,
-                        'is_important': True,
-                        'actor_id': None,
-                        'target_id': pid,
-                    }
+                    LFEventLogEntry(
+                        time=event.time,
+                        desc=desc,
+                        is_important=True,
+                        actor_id=None,
+                        target_id=pid,
+                    )
                 )
 
     def _insert_zap_multiplier(self, text: str, count: int) -> str:
         """Inserts a zap multiplier (e.g. x2, x3) after 'zap' or 'Zapped'."""
-        multiplier = f' x{count}'
-        if re.search(r'(?i)zapped', text):
+        multiplier = f" x{count}"
+        if re.search(r"(?i)zapped", text):
             return re.sub(
-                r'(?i)zapped',
-                lambda m: f'{m.group(0)}{multiplier}',
+                r"(?i)zapped",
+                lambda m: f"{m.group(0)}{multiplier}",
                 text,
                 count=1,
             )
-        elif re.search(r'(?i)zap', text):
+        elif re.search(r"(?i)zap", text):
             return re.sub(
-                r'(?i)zap',
-                lambda m: f'{m.group(0)}{multiplier}',
+                r"(?i)zap",
+                lambda m: f"{m.group(0)}{multiplier}",
                 text,
                 count=1,
             )
@@ -796,21 +759,15 @@ class VisualElementGenerator:
         else:
             _, players, teams = self.snapshots[idx - 1]
 
-        cloned_players = {
-            pid: self._copy_player_state(p) for pid, p in players.items()
-        }
-        cloned_teams = {
-            tid: self._copy_team_state(t) for tid, t in teams.items()
-        }
+        cloned_players = {pid: self._copy_player_state(p) for pid, p in players.items()}
+        cloned_teams = {tid: self._copy_team_state(t) for tid, t in teams.items()}
 
         for player in cloned_players.values():
             player.update_downtime(time_ms)
 
         return cloned_players, cloned_teams
 
-    def _resolve_element_style(
-        self, el_config: dict[str, Any]
-    ) -> UIElementStyle:
+    def _resolve_element_style(self, el_config: dict[str, Any]) -> UIElementStyle:
         """Resolves styling properties from configuration.
 
         Args:
@@ -819,25 +776,21 @@ class VisualElementGenerator:
         Returns:
             UIElementStyle: The resolved style.
         """
-        style_config = el_config.get('style', {})
+        style_config = el_config.get("style", {})
         global_style = {
-            'font': self.config.get('font', 'GoogleSans-Bold'),
-            'style': self.config.get('style', 'normal'),
-            'size': self.config.get('size', 20),
-            'color': self.config.get('color', '#ffffffff'),
-            'background_color': self.config.get(
-                'background_color', '#00000000'
-            ),
+            "font": self.config.get("font", "GoogleSans-Bold"),
+            "style": self.config.get("style", "normal"),
+            "size": self.config.get("size", 20),
+            "color": self.config.get("color", "#ffffffff"),
+            "background_color": self.config.get("background_color", "#00000000"),
         }
 
-        font = style_config.get('font', global_style['font'])
-        style_type = style_config.get('style', global_style['style'])
-        size = style_config.get(
-            'size', el_config.get('size', global_style['size'])
-        )
-        color = style_config.get('color', global_style['color'])
+        font = style_config.get("font", global_style["font"])
+        style_type = style_config.get("style", global_style["style"])
+        size = style_config.get("size", el_config.get("size", global_style["size"]))
+        color = style_config.get("color", global_style["color"])
         bg_color = style_config.get(
-            'background_color', global_style['background_color']
+            "background_color", global_style["background_color"]
         )
 
         return UIElementStyle(
@@ -848,9 +801,7 @@ class VisualElementGenerator:
             background_color=bg_color,
         )
 
-    def _translate_position_compat(
-        self, x: float | None, y: float | None
-    ) -> str:
+    def _translate_position_compat(self, x: float | None, y: float | None) -> str:
         """Translates coordinate pairs to legacy position strings for compat.
 
         Args:
@@ -861,16 +812,16 @@ class VisualElementGenerator:
             str: The legacy position description string.
         """
         if x == 0.1 and y == 0.9:
-            return 'bottom left'
+            return "bottom left"
         if x == 0.9 and y == 0.5:
-            return 'top right'
+            return "top right"
         if x == 0.5 and (y == 0.05 or y == 0.09):
-            return 'top center'
+            return "top center"
         if x == 0.9 and y == 0.05:
-            return 'top right'
+            return "top right"
         if x in (0.2, 0.4, 0.6, 0.8) and y == 0.13:
-            return 'top left'
-        return ''
+            return "top left"
+        return ""
 
     def _parse_indicator_interval(self, val: Any) -> int | None:
         """Parses a visual indicator interval from configuration value.
@@ -887,9 +838,9 @@ class VisualElementGenerator:
             return val if val > 0 else None
         if isinstance(val, str):
             val_clean = val.strip().lower()
-            if val_clean in ('none', 'null', ''):
+            if val_clean in ("none", "null", ""):
                 return None
-            match = re.search(r'\d+', val_clean)
+            match = re.search(r"\d+", val_clean)
             if match:
                 parsed = int(match.group())
                 return parsed if parsed > 0 else None
@@ -924,7 +875,7 @@ class VisualElementGenerator:
         """
         msg: str | None = None
         if target_id == self.entity_id:
-            if et == '0500':
+            if et == "0500":
                 self._last_ammo_resup = LFResupplyTracker(
                     time_ms=event.time, actor_name=actor_name
                 )
@@ -933,8 +884,8 @@ class VisualElementGenerator:
                     and event.time - self._last_medic_resup.time_ms <= 1000
                 ):
                     msg = (
-                        f'Double-resupply by {actor_name} and '
-                        f'{self._last_medic_resup.actor_name}'
+                        f"Double-resupply by {actor_name} and "
+                        f"{self._last_medic_resup.actor_name}"
                     )
                     if self._update_double_resupply_event(
                         prev_time=self._last_medic_resup.time_ms,
@@ -944,7 +895,7 @@ class VisualElementGenerator:
                     ):
                         msg = None
                 else:
-                    msg = f'Resupplied shots by {actor_name}'
+                    msg = f"Resupplied shots by {actor_name}"
             else:
                 self._last_medic_resup = LFResupplyTracker(
                     time_ms=event.time, actor_name=actor_name
@@ -954,9 +905,9 @@ class VisualElementGenerator:
                     and event.time - self._last_ammo_resup.time_ms <= 1000
                 ):
                     msg = (
-                        f'Double-resupply by '
-                        f'{self._last_ammo_resup.actor_name} '
-                        f'and {actor_name}'
+                        f"Double-resupply by "
+                        f"{self._last_ammo_resup.actor_name} "
+                        f"and {actor_name}"
                     )
                     if self._update_double_resupply_event(
                         prev_time=self._last_ammo_resup.time_ms,
@@ -966,14 +917,14 @@ class VisualElementGenerator:
                     ):
                         msg = None
                 else:
-                    msg = f'Resupplied lives by {actor_name}'
+                    msg = f"Resupplied lives by {actor_name}"
 
         elif actor_id == self.entity_id and target_id:
-            if et == '0500':
+            if et == "0500":
                 self._last_ammo_resup_by_me[target_id] = event.time
                 prev_medic = self._last_medic_resup_by_me.get(target_id)
                 if prev_medic and event.time - prev_medic <= 1000:
-                    msg = f'Double-resupplied {target_name}'
+                    msg = f"Double-resupplied {target_name}"
                     if self._update_double_resupply_event(
                         prev_time=prev_medic,
                         event_time=event.time,
@@ -982,12 +933,12 @@ class VisualElementGenerator:
                     ):
                         msg = None
                 else:
-                    msg = f'Resupplied shots for {target_name}'
+                    msg = f"Resupplied shots for {target_name}"
             else:
                 self._last_medic_resup_by_me[target_id] = event.time
                 prev_ammo = self._last_ammo_resup_by_me.get(target_id)
                 if prev_ammo and event.time - prev_ammo <= 1000:
-                    msg = f'Double-resupplied {target_name}'
+                    msg = f"Double-resupplied {target_name}"
                     if self._update_double_resupply_event(
                         prev_time=prev_ammo,
                         event_time=event.time,
@@ -996,7 +947,7 @@ class VisualElementGenerator:
                     ):
                         msg = None
                 else:
-                    msg = f'Resupplied lives for {target_name}'
+                    msg = f"Resupplied lives for {target_name}"
         return msg
 
     def _process_hud_boost_event(
@@ -1027,12 +978,12 @@ class VisualElementGenerator:
         """
         msg: str | None = None
         if actor_id == self.entity_id:
-            if et == '0510':
-                msg = 'Ammo-boosted team'
+            if et == "0510":
+                msg = "Ammo-boosted team"
             else:
-                msg = 'Life-boosted team'
+                msg = "Life-boosted team"
         elif actor_id != self.entity_id:
-            a_state = replay.game_state.players.get(actor_id or '')
+            a_state = replay.game_state.players.get(actor_id or "")
             self_state = replay.game_state.players.get(self.entity_id)
             prev_self = prev_players.get(self.entity_id)
             if (
@@ -1041,14 +992,11 @@ class VisualElementGenerator:
                 and prev_self
                 and a_state.team_index == self_state.team_index
             ):
-                if (
-                    prev_self.can_receive_resupply(event.time)
-                    and prev_self.lives > 0
-                ):
-                    if et == '0510':
-                        msg = f'Shot-boosted by {actor_name}'
+                if prev_self.can_receive_resupply(event.time) and prev_self.lives > 0:
+                    if et == "0510":
+                        msg = f"Shot-boosted by {actor_name}"
                     else:
-                        msg = f'Life-boosted by {actor_name}'
+                        msg = f"Life-boosted by {actor_name}"
         return msg
 
     def _update_double_resupply_event(
@@ -1073,23 +1021,23 @@ class VisualElementGenerator:
         Returns:
             bool: True if the previous event was found and updated, else False.
         """
-        el_config: dict[str, Any] = self.config.get('elements', {}).get(
-            'player_events', {}
+        el_config: dict[str, Any] = self.config.get("elements", {}).get(
+            "player_events", {}
         )
-        fade_time_s: float | None = el_config.get('fade_out_time')
+        fade_time_s: float | None = el_config.get("fade_out_time")
         if fade_time_s is None:
-            fade_time_s = self.config.get('fade_out_time', 3.0)
+            fade_time_s = self.config.get("fade_out_time", 3.0)
         fade_time_ms: int = int(fade_time_s * 1000)
 
         for ev in reversed(self.player_event_log):
             if (
-                ev['time'] == prev_time
-                and ev['desc'].startswith('Resupplied ')
-                and (target_id is None or ev['target_id'] == target_id)
+                ev.time == prev_time
+                and ev.desc.startswith("Resupplied ")
+                and (target_id is None or ev.target_id == target_id)
             ):
-                ev['double_resup_desc'] = double_resup_msg
-                ev['double_resup_time'] = event_time
-                ev['duration'] = (event_time - prev_time) + fade_time_ms
+                ev.double_resup_desc = double_resup_msg
+                ev.double_resup_time = event_time
+                ev.duration = (event_time - prev_time) + fade_time_ms
                 return True
         return False
 
@@ -1108,40 +1056,38 @@ class VisualElementGenerator:
             dict[str, str]: A dictionary mapping variable names to their values.
         """
         variables = {
-            'game_type': f'Game Type: {self.game.game_type}',
-            'normalized_game_type': self.game.normalized_game_type or '',
+            "game_type": f"Game Type: {self.game.game_type}",
+            "normalized_game_type": self.game.normalized_game_type or "",
         }
 
         # Date of the game
-        el_config_date = self.config.get('elements', {}).get('date_of_game', {})
-        format_str = el_config_date.get('format')
-        date_text = ''
+        el_config_date = self.config.get("elements", {}).get("date_of_game", {})
+        format_str = el_config_date.get("format")
+        date_text = ""
         if self.game.timestamp:
             if format_str:
                 try:
                     date_text = self.game.timestamp.strftime(format_str)
                 except Exception:
-                    date_text = self.game.timestamp.strftime('%Y-%m-%d')
+                    date_text = self.game.timestamp.strftime("%Y-%m-%d")
             else:
                 month_str = str(self.game.timestamp.month)
                 day_str = str(self.game.timestamp.day)
-                year_str = self.game.timestamp.strftime('%y')
-                date_text = f'{month_str}/{day_str}/{year_str}'
+                year_str = self.game.timestamp.strftime("%y")
+                date_text = f"{month_str}/{day_str}/{year_str}"
         elif self.game.start:
             date_text = self.game.start
-        variables['date_of_game'] = date_text
+        variables["date_of_game"] = date_text
 
         # User defined texts
         for i in range(1, 13):
-            key = f'user_defined_text_{i}'
-            el_config_user = self.config.get('elements', {}).get(key, {})
-            user_text = el_config_user.get('text', '')
+            key = f"user_defined_text_{i}"
+            el_config_user = self.config.get("elements", {}).get(key, {})
+            user_text = el_config_user.get("text", "")
             variables[key] = user_text
 
         # Centre/Arena name
-        variables['centre_name'] = (
-            self.game.arena_name or self.game.centre or ''
-        )
+        variables["centre_name"] = self.game.arena_name or self.game.centre or ""
 
         # Time variable
         actual_duration_ms = self.game.duration
@@ -1155,19 +1101,19 @@ class VisualElementGenerator:
         total_seconds = display_ms // 1000
         minutes = total_seconds // 60
         seconds = total_seconds % 60
-        time_text = f'{minutes:02d}:{seconds:02d}'
-        variables['time'] = time_text
+        time_text = f"{minutes:02d}:{seconds:02d}"
+        variables["time"] = time_text
 
         # Player-specific variables
         if self.entity_id and self.entity_id in players:
             p_state = players[self.entity_id]
-            variables['player_name'] = self.player_name or ''
-            variables['player_role'] = p_state.role.display_name
-            variables['player_score'] = str(p_state.score)
+            variables["player_name"] = self.player_name or ""
+            variables["player_role"] = p_state.role.display_name
+            variables["player_score"] = str(p_state.score)
         else:
-            variables['player_name'] = ''
-            variables['player_role'] = ''
-            variables['player_score'] = ''
+            variables["player_name"] = ""
+            variables["player_role"] = ""
+            variables["player_score"] = ""
 
         return variables
 
@@ -1194,7 +1140,7 @@ class VisualElementGenerator:
             rendered = template.render(local_vars)
         except Exception as e:
             # Fall back to template_str if rendering fails
-            print(f'Warning: Jinja rendering failed: {e}')
+            print(f"Warning: Jinja rendering failed: {e}")
             rendered = template_str
 
         self._jinja_cache[cache_key] = rendered
@@ -1213,52 +1159,50 @@ class VisualElementGenerator:
         Returns:
             UIElement | None: The element if enabled, otherwise None.
         """
-        el_config = self.config.get('elements', {}).get(element_key, {})
-        if not el_config.get('enabled', True):
+        el_config = self.config.get("elements", {}).get(element_key, {})
+        if not el_config.get("enabled", True):
             return None
 
         style = self._resolve_element_style(el_config)
-        x = el_config.get('x')
-        y = el_config.get('y')
-        align = el_config.get('align')
-        extents = el_config.get('extents')
-        icon = el_config.get('icon')
+        x = el_config.get("x")
+        y = el_config.get("y")
+        align = el_config.get("align")
+        extents = el_config.get("extents")
+        icon = el_config.get("icon")
 
         pos_compat = self._translate_position_compat(x, y)
 
         kwargs_copy = dict(kwargs)
-        elem_type = kwargs_copy.pop('element_type', 'text')
+        elem_type = kwargs_copy.pop("element_type", "text")
 
-        if 'extents' not in kwargs_copy and extents is not None:
-            kwargs_copy['extents'] = extents
-        if 'icon' not in kwargs_copy and icon is not None:
-            kwargs_copy['icon'] = icon
+        if "extents" not in kwargs_copy and extents is not None:
+            kwargs_copy["extents"] = extents
+        if "icon" not in kwargs_copy and icon is not None:
+            kwargs_copy["icon"] = icon
 
-        kwarg_indicator = kwargs_copy.pop('indicator_interval', None)
+        kwarg_indicator = kwargs_copy.pop("indicator_interval", None)
 
         config_indicator = (
-            el_config.get('indicator_interval')
-            or el_config.get('indicator')
-            or el_config.get('interval')
-            or el_config.get('indicators')
+            el_config.get("indicator_interval")
+            or el_config.get("indicator")
+            or el_config.get("interval")
+            or el_config.get("indicators")
         )
         if config_indicator is not None:
-            indicator_interval = self._parse_indicator_interval(
-                config_indicator
-            )
+            indicator_interval = self._parse_indicator_interval(config_indicator)
         else:
             indicator_interval = kwarg_indicator
 
-        text_val = text if text is not None else el_config.get('text')
+        text_val = text if text is not None else el_config.get("text")
 
         formatted_text = None
-        if elem_type == 'text':
-            formatted_text = el_config.get('formatted_text')
-            if formatted_text is None or formatted_text == '':
-                formatted_text = f'{{{{ {element_key} }}}}'
+        if elem_type == "text":
+            formatted_text = el_config.get("formatted_text")
+            if formatted_text is None or formatted_text == "":
+                formatted_text = f"{{{{ {element_key} }}}}"
 
             local_vars = dict(self.current_variables)
-            raw_val = text_val if text_val is not None else ''
+            raw_val = text_val if text_val is not None else ""
             local_vars[element_key] = raw_val
 
             text_val = self._render_jinja_text(
@@ -1266,48 +1210,48 @@ class VisualElementGenerator:
                 local_vars=local_vars,
             )
 
-        pregame_delay = self.config.get('pregame_delay_ms', 0)
-        video_end_ms = self.config.get('video_end_ms')
+        pregame_delay = self.config.get("pregame_delay_ms", 0)
+        video_end_ms = self.config.get("video_end_ms")
         if video_end_ms is None:
             actual_duration_ms = self.game.duration
             if self.game_ended_at_ms is not None:
                 actual_duration_ms = self.game_ended_at_ms
             if actual_duration_ms is None:
                 actual_duration_ms = 0
-            extra_footage_ms = self.config.get('extra_footage_ms', 10000)
+            extra_footage_ms = self.config.get("extra_footage_ms", 10000)
             video_end_ms = actual_duration_ms + extra_footage_ms + pregame_delay
 
         offset_setting = kwargs_copy.pop(
-            'start_time_offset',
-            el_config.get('start_time_offset', 'beginning of video'),
+            "start_time_offset",
+            el_config.get("start_time_offset", "beginning of video"),
         )
         offset = 0
-        if offset_setting == 'beginning of game':
+        if offset_setting == "beginning of game":
             offset = pregame_delay
-        elif offset_setting == 'end of game':
+        elif offset_setting == "end of game":
             offset = pregame_delay + actual_duration_ms
 
         raw_start = kwargs_copy.pop(
-            'visible_start_ms',
-            el_config.get('visible_start_ms', 0),
+            "visible_start_ms",
+            el_config.get("visible_start_ms", 0),
         )
         visible_start = raw_start + offset
 
         raw_end = kwargs_copy.pop(
-            'visible_end_ms',
-            el_config.get('visible_end_ms', 0),
+            "visible_end_ms",
+            el_config.get("visible_end_ms", 0),
         )
         if raw_end != 0:
             visible_end = raw_end + offset
         else:
             visible_end = video_end_ms
         fade_in = kwargs_copy.pop(
-            'fade_in_ms',
-            el_config.get('fade_in_ms', 0),
+            "fade_in_ms",
+            el_config.get("fade_in_ms", 0),
         )
         fade_out = kwargs_copy.pop(
-            'fade_out_ms',
-            el_config.get('fade_out_ms', 0),
+            "fade_out_ms",
+            el_config.get("fade_out_ms", 0),
         )
 
         return UIElement(
@@ -1331,7 +1275,7 @@ class VisualElementGenerator:
         self,
         team_players: list[LFReplayPlayerState],
         time_ms: int,
-    ) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    ) -> tuple[list[LFScoreboardPlayerData], LFScoreboardTeamTotals]:
         """Compiles players stats and calculates team totals.
 
         Args:
@@ -1339,8 +1283,8 @@ class VisualElementGenerator:
             time_ms: Current millisecond timestamp.
 
         Returns:
-            tuple[list[dict[str, Any]], dict[str, int]]:
-                The compiled player data dictionaries and the totals dictionary.
+            tuple[list[LFScoreboardPlayerData], LFScoreboardTeamTotals]:
+                The compiled player data objects and the totals object.
         """
         players_data = []
         tot_score = 0
@@ -1353,20 +1297,20 @@ class VisualElementGenerator:
         for p in team_players:
             codename = self.entity_names.get(p.entity_id, p.entity_id)
             players_data.append(
-                {
-                    'codename': codename,
-                    'role_name': p.role.display_name,
-                    'score': p.score,
-                    'lives': p.lives,
-                    'shots': p.shots,
-                    'missiles': p.missiles,
-                    'special_points': p.special_points,
-                    'hp': p.hp,
-                    'max_hp': p.max_hp,
-                    'is_down': p.is_down(time_ms),
-                    'is_eliminated': p.is_eliminated(),
-                    'penalties': p.penalties,
-                }
+                LFScoreboardPlayerData(
+                    codename=codename,
+                    role_name=p.role.display_name,
+                    score=p.score,
+                    lives=p.lives,
+                    shots=p.shots,
+                    missiles=p.missiles,
+                    special_points=p.special_points,
+                    hp=p.hp,
+                    max_hp=p.max_hp,
+                    is_down=p.is_down(time_ms),
+                    is_eliminated=p.is_eliminated(),
+                    penalties=p.penalties,
+                )
             )
             tot_score += p.score
             tot_lives += p.lives
@@ -1376,14 +1320,14 @@ class VisualElementGenerator:
             if p.max_hp > 1:
                 tot_hp += p.hp
 
-        totals = {
-            'score': tot_score,
-            'lives': tot_lives,
-            'shots': tot_shots,
-            'missiles': tot_missiles,
-            'special_points': tot_spec,
-            'hp': tot_hp,
-        }
+        totals = LFScoreboardTeamTotals(
+            score=tot_score,
+            lives=tot_lives,
+            shots=tot_shots,
+            missiles=tot_missiles,
+            special_points=tot_spec,
+            hp=tot_hp,
+        )
         return players_data, totals
 
     def _build_team_scoreboard_data(
@@ -1391,7 +1335,7 @@ class VisualElementGenerator:
         team: LFReplayTeamState,
         players: dict[str, LFReplayPlayerState],
         time_ms: int,
-    ) -> dict[str, Any]:
+    ) -> LFScoreboardTeamData:
         """Builds scoreboard stats data for a single team.
 
         Args:
@@ -1400,32 +1344,28 @@ class VisualElementGenerator:
             time_ms: Current millisecond timestamp.
 
         Returns:
-            dict[str, Any]: Compiled team scoreboard dictionary.
+            LFScoreboardTeamData: Compiled team scoreboard data object.
         """
-        anim = self.config.get('animation', 'ease-in-out')
+        anim = self.config.get("animation", "ease-in-out")
         trans_list = self.team_transitions.get(team.team_index, [])
-        vr = get_visual_rank(
-            team.team_index, time_ms, trans_list, team.ranking, anim
-        )
+        vr = get_visual_rank(team.team_index, time_ms, trans_list, team.ranking, anim)
 
-        team_players = [
-            p for p in players.values() if p.team_index == team.team_index
-        ]
+        team_players = [p for p in players.values() if p.team_index == team.team_index]
         team_players.sort(key=lambda p: p.score, reverse=True)
 
         players_data, totals = self._compile_player_scoreboard_data(
             team_players, time_ms
         )
 
-        return {
-            'team_index': team.team_index,
-            'team_name': team.name,
-            'team_score': team.score,
-            'color_rgb': team.color_rgb,
-            'players': players_data,
-            'visual_rank': vr,
-            'totals': totals,
-        }
+        return LFScoreboardTeamData(
+            team_index=team.team_index,
+            team_name=team.name,
+            team_score=team.score,
+            color_rgb=team.color_rgb,
+            players=players_data,
+            visual_rank=vr,
+            totals=totals,
+        )
 
     def _create_scoreboard_element(
         self,
@@ -1443,21 +1383,19 @@ class VisualElementGenerator:
         Returns:
             UIElement | None: The scoreboard element if enabled.
         """
-        el_config = self.config.get('elements', {}).get('scoreboard', {})
-        if not el_config.get('enabled', True):
+        el_config = self.config.get("elements", {}).get("scoreboard", {})
+        if not el_config.get("enabled", True):
             return None
 
         teams_data = [
-            self._build_team_scoreboard_data(
-                team=t, players=players, time_ms=time_ms
-            )
+            self._build_team_scoreboard_data(team=t, players=players, time_ms=time_ms)
             for t in teams.values()
         ]
 
         return self._create_ui_element(
-            'scoreboard',
-            element_type='scoreboard',
-            scoreboard_data={'teams': teams_data},
+            "scoreboard",
+            element_type="scoreboard",
+            scoreboard_data=LFScoreboardData(teams=teams_data),
         )
 
     def _add_global_hud_elements(
@@ -1476,17 +1414,17 @@ class VisualElementGenerator:
             time_ms: Current millisecond timestamp.
         """
         el_game_type = self._create_ui_element(
-            'game_type',
-            text=f'Game Type: {self.game.game_type}',
-            element_type='text',
+            "game_type",
+            text=f"Game Type: {self.game.game_type}",
+            element_type="text",
         )
         if el_game_type:
             elements.append(el_game_type)
 
         el_norm_game_type = self._create_ui_element(
-            'normalized_game_type',
-            text=self.game.normalized_game_type or '',
-            element_type='text',
+            "normalized_game_type",
+            text=self.game.normalized_game_type or "",
+            element_type="text",
         )
         if el_norm_game_type:
             elements.append(el_norm_game_type)
@@ -1502,11 +1440,9 @@ class VisualElementGenerator:
         total_seconds = display_ms // 1000
         minutes = total_seconds // 60
         seconds = total_seconds % 60
-        time_text = f'{minutes:02d}:{seconds:02d}'
+        time_text = f"{minutes:02d}:{seconds:02d}"
 
-        el_time = self._create_ui_element(
-            'time', text=time_text, element_type='text'
-        )
+        el_time = self._create_ui_element("time", text=time_text, element_type="text")
         if el_time:
             elements.append(el_time)
 
@@ -1516,45 +1452,45 @@ class VisualElementGenerator:
         if el_sb:
             elements.append(el_sb)
 
-        el_config_date = self.config.get('elements', {}).get('date_of_game', {})
-        format_str = el_config_date.get('format')
-        date_text = ''
+        el_config_date = self.config.get("elements", {}).get("date_of_game", {})
+        format_str = el_config_date.get("format")
+        date_text = ""
         if self.game.timestamp:
             if format_str:
                 try:
                     date_text = self.game.timestamp.strftime(format_str)
                 except Exception:
-                    date_text = self.game.timestamp.strftime('%Y-%m-%d')
+                    date_text = self.game.timestamp.strftime("%Y-%m-%d")
             else:
                 month_str = str(self.game.timestamp.month)
                 day_str = str(self.game.timestamp.day)
-                year_str = self.game.timestamp.strftime('%y')
-                date_text = f'{month_str}/{day_str}/{year_str}'
+                year_str = self.game.timestamp.strftime("%y")
+                date_text = f"{month_str}/{day_str}/{year_str}"
         elif self.game.start:
             date_text = self.game.start
 
         if date_text:
             el_date = self._create_ui_element(
-                'date_of_game',
+                "date_of_game",
                 text=date_text,
-                element_type='text',
+                element_type="text",
             )
             if el_date:
                 elements.append(el_date)
 
         for i in range(1, 13):
             el_user = self._create_ui_element(
-                f'user_defined_text_{i}',
-                element_type='text',
+                f"user_defined_text_{i}",
+                element_type="text",
             )
             if el_user:
                 elements.append(el_user)
 
-        centre_text = self.game.arena_name or self.game.centre or ''
+        centre_text = self.game.arena_name or self.game.centre or ""
         el_centre = self._create_ui_element(
-            'centre_name',
+            "centre_name",
             text=centre_text,
-            element_type='text',
+            element_type="text",
         )
         if el_centre:
             elements.append(el_centre)
@@ -1571,18 +1507,18 @@ class VisualElementGenerator:
             p_state: Player state of the focused player.
         """
         stats_defs = [
-            ('player_name', f'{self.player_name}'),
-            ('player_role', f'{p_state.role.display_name}'),
-            ('player_score', f'{p_state.score}'),
+            ("player_name", f"{self.player_name}"),
+            ("player_role", f"{p_state.role.display_name}"),
+            ("player_score", f"{p_state.score}"),
         ]
         for key, text in stats_defs:
-            el = self._create_ui_element(key, text=text, element_type='text')
+            el = self._create_ui_element(key, text=text, element_type="text")
             if el:
                 elements.append(el)
 
         el_lives = self._create_ui_element(
-            'player_lives',
-            element_type='counter',
+            "player_lives",
+            element_type="counter",
             current_value=p_state.lives,
             max_value=p_state.role.max_lives,
         )
@@ -1591,8 +1527,8 @@ class VisualElementGenerator:
 
         if p_state.role.max_shots > 0:
             el_shots = self._create_ui_element(
-                'player_shots',
-                element_type='counter',
+                "player_shots",
+                element_type="counter",
                 current_value=p_state.shots,
                 max_value=p_state.role.max_shots,
             )
@@ -1601,8 +1537,8 @@ class VisualElementGenerator:
 
         if p_state.role.start_missiles > 0:
             el_missiles = self._create_ui_element(
-                'player_missiles',
-                element_type='counter',
+                "player_missiles",
+                element_type="counter",
                 current_value=p_state.missiles,
                 max_value=p_state.role.start_missiles,
                 indicator_interval=1,
@@ -1612,8 +1548,8 @@ class VisualElementGenerator:
 
         if p_state.max_hp > 1:
             el_hp = self._create_ui_element(
-                'player_hitpoints',
-                element_type='counter',
+                "player_hitpoints",
+                element_type="counter",
                 current_value=p_state.hp,
                 max_value=p_state.max_hp,
                 indicator_interval=1,
@@ -1632,8 +1568,8 @@ class VisualElementGenerator:
                 sp_interval = None
 
             el_pspec = self._create_ui_element(
-                'player_special_points',
-                element_type='counter',
+                "player_special_points",
+                element_type="counter",
                 current_value=p_state.special_points,
                 max_value=99,
                 indicator_interval=sp_interval,
@@ -1657,13 +1593,11 @@ class VisualElementGenerator:
         if p_state.is_down(time_ms):
             safe_rem_ms = max(0, p_state.resettable_starts_at_ms - time_ms)
             res_base_ms = max(time_ms, p_state.resettable_starts_at_ms)
-            resettable_rem_ms = max(
-                0, p_state.downtime_ends_at_ms - res_base_ms
-            )
+            resettable_rem_ms = max(0, p_state.downtime_ends_at_ms - res_base_ms)
 
             el_dt = self._create_ui_element(
-                'downtime',
-                element_type='downtime_bar',
+                "downtime",
+                element_type="downtime_bar",
                 safe_ms=safe_rem_ms,
                 resettable_ms=resettable_rem_ms,
             )
@@ -1697,13 +1631,13 @@ class VisualElementGenerator:
         fade_time_ms: int,
         max_lines: int = 3,
         is_game_events: bool = False,
-    ) -> list[dict[str, Any] | None]:
+    ) -> list[LFMultilineSlot | None]:
         """Simulates event timeline to allocate events to lines/slots.
 
         Tracks slots and expires events dynamically as time advances.
 
         Args:
-            event_list: A list of logged event dicts containing 'time' and
+            event_list: A list of logged event objects containing 'time' and
                 'desc'.
             time_ms: The target timestamp in milliseconds.
             fade_time_ms: The default display duration in milliseconds.
@@ -1711,26 +1645,28 @@ class VisualElementGenerator:
             is_game_events: True to enable dynamic nuke durations.
 
         Returns:
-            list[dict[str, Any] | None]: List of slots with active events.
+            list[LFMultilineSlot | None]: List of slots with active events.
         """
-        sorted_events = sorted(event_list, key=lambda e: e['time'])
-        slots: list[dict[str, Any] | None] = [None] * max_lines
+        sorted_events = sorted(event_list, key=lambda e: e.time)
+        slots: list[LFMultilineSlot | None] = [None] * max_lines
 
         for ev in sorted_events:
-            ev_time = ev['time']
+            ev_time = ev.time
             if ev_time > time_ms:
                 break
 
             for i in range(max_lines):
                 slot = slots[i]
-                if slot is not None and slot['end'] <= ev_time:
+                if slot is not None and slot.end <= ev_time:
                     slots[i] = None
 
             is_nuke_act = False
-            duration = ev.get('duration', fade_time_ms)
+            duration = getattr(ev, "duration", None)
+            if duration is None:
+                duration = fade_time_ms
 
-            if is_game_events and ev.get('is_important'):
-                if 'activates nuke' in ev['desc']:
+            if is_game_events and getattr(ev, "is_important", False):
+                if "activates nuke" in ev.desc:
                     is_nuke_act = True
                     t_end = time_ms
                     for interval in self.nuke_intervals:
@@ -1749,36 +1685,35 @@ class VisualElementGenerator:
                     break
 
             if slot_idx != -1:
-                text: str = ev['desc']
-                target_color_override = ev.get('target_color_override')
-                if (
-                    'double_resup_desc' in ev
-                    and time_ms >= ev['double_resup_time']
-                ):
-                    text = ev['double_resup_desc']
-                elif 'follow_up_desc' in ev and time_ms >= ev['follow_up_time']:
-                    text = ev['follow_up_desc']
+                text: str = ev.desc
+                target_color_override = getattr(ev, "target_color_override", None)
+                if getattr(
+                    ev, "double_resup_desc", None
+                ) is not None and time_ms >= getattr(ev, "double_resup_time", 0):
+                    text = getattr(ev, "double_resup_desc", "")
+                elif getattr(
+                    ev, "follow_up_desc", None
+                ) is not None and time_ms >= getattr(ev, "follow_up_time", 0):
+                    text = getattr(ev, "follow_up_desc", "")
                 else:
-                    for update in ev.get('updates', []):
-                        if time_ms >= update['time']:
-                            text = update['desc']
-                            if 'target_color_override' in update:
-                                target_color_override = update[
-                                    'target_color_override'
-                                ]
+                    for update in getattr(ev, "updates", []):
+                        if time_ms >= update.time:
+                            text = update.desc
+                            if update.target_color_override is not None:
+                                target_color_override = update.target_color_override
 
-                slots[slot_idx] = {
-                    'text': text,
-                    'start': ev_time,
-                    'end': ev_time + duration,
-                    'is_nuke_act': is_nuke_act,
-                    'duration': duration,
-                    'target_color_override': target_color_override,
-                }
+                slots[slot_idx] = LFMultilineSlot(
+                    text=text,
+                    start=ev_time,
+                    end=ev_time + duration,
+                    is_nuke_act=is_nuke_act,
+                    duration=duration,
+                    target_color_override=target_color_override,
+                )
 
         for i in range(max_lines):
             slot = slots[i]
-            if slot is not None and slot['end'] <= time_ms:
+            if slot is not None and slot.end <= time_ms:
                 slots[i] = None
 
         return slots
@@ -1801,13 +1736,13 @@ class VisualElementGenerator:
         if not self.entity_id:
             return
 
-        el_config = self.config.get('elements', {}).get('player_events', {})
-        if not el_config.get('enabled', True):
+        el_config = self.config.get("elements", {}).get("player_events", {})
+        if not el_config.get("enabled", True):
             return
 
-        fade_time_s = el_config.get('fade_out_time')
+        fade_time_s = el_config.get("fade_out_time")
         if fade_time_s is None:
-            fade_time_s = self.config.get('fade_out_time', 3.0)
+            fade_time_s = self.config.get("fade_out_time", 3.0)
         fade_time_ms = int(fade_time_s * 1000)
 
         slots = self._get_active_multiline_lines(
@@ -1818,25 +1753,23 @@ class VisualElementGenerator:
             is_game_events=False,
         )
 
-        base_y = el_config.get('y', 0.2)
-        font_size = el_config.get('style', {}).get('size', 18)
+        base_y = el_config.get("y", 0.2)
+        font_size = el_config.get("style", {}).get("size", 18)
         line_height = (font_size * 1.3) / 800
 
         for line_idx, slot in enumerate(slots):
             if slot is not None:
-                elapsed = time_ms - slot['start']
-                alpha = get_fade_alpha(elapsed, slot['duration'], anim)
+                elapsed = time_ms - slot.start
+                alpha = get_fade_alpha(elapsed, slot.duration, anim)
                 y_offset = base_y + line_idx * line_height
-                line_color_map = (
-                    dict(player_to_color) if player_to_color else {}
-                )
-                overrides = slot.get('target_color_override')
+                line_color_map = dict(player_to_color) if player_to_color else {}
+                overrides = slot.target_color_override
                 if overrides:
                     line_color_map.update(overrides)
                 el = self._create_ui_element(
-                    'player_events',
-                    text=slot['text'],
-                    element_type='text',
+                    "player_events",
+                    text=slot.text,
+                    element_type="text",
                     alpha=alpha,
                     player_to_color=line_color_map,
                 )
@@ -1859,18 +1792,16 @@ class VisualElementGenerator:
             anim: Animation function name.
             player_to_color: Optional player names to hex colors dictionary.
         """
-        el_config = self.config.get('elements', {}).get('game_events', {})
-        if not el_config.get('enabled', True):
+        el_config = self.config.get("elements", {}).get("game_events", {})
+        if not el_config.get("enabled", True):
             return
 
-        fade_time_s = el_config.get('fade_out_time')
+        fade_time_s = el_config.get("fade_out_time")
         if fade_time_s is None:
-            fade_time_s = self.config.get('fade_out_time', 5.0)
+            fade_time_s = self.config.get("fade_out_time", 5.0)
         fade_time_ms = int(fade_time_s * 1000)
 
-        important_events = [
-            ev for ev in self.event_log if ev.get('is_important')
-        ]
+        important_events = [ev for ev in self.event_log if ev.is_important]
 
         slots = self._get_active_multiline_lines(
             event_list=important_events,
@@ -1880,23 +1811,23 @@ class VisualElementGenerator:
             is_game_events=True,
         )
 
-        base_y = el_config.get('y', 0.25)
-        font_size = el_config.get('style', {}).get('size', 20)
+        base_y = el_config.get("y", 0.25)
+        font_size = el_config.get("style", {}).get("size", 20)
         line_height = (font_size * 1.3) / 800
 
         for line_idx, slot in enumerate(slots):
             if slot is not None:
-                if slot['is_nuke_act']:
+                if slot.is_nuke_act:
                     alpha = 1.0
                 else:
-                    elapsed = time_ms - slot['start']
-                    alpha = get_fade_alpha(elapsed, slot['duration'], anim)
+                    elapsed = time_ms - slot.start
+                    alpha = get_fade_alpha(elapsed, slot.duration, anim)
 
                 y_offset = base_y + line_idx * line_height
                 el = self._create_ui_element(
-                    'game_events',
-                    text=slot['text'],
-                    element_type='text',
+                    "game_events",
+                    text=slot.text,
+                    element_type="text",
                     alpha=alpha,
                     player_to_color=player_to_color,
                 )
@@ -1919,16 +1850,16 @@ class VisualElementGenerator:
             teams: Dictionary of team states.
             time_ms: Current millisecond timestamp.
         """
-        anim = self.config.get('animation', 'ease-in-out')
+        anim = self.config.get("animation", "ease-in-out")
 
         player_to_color: dict[str, str] = {}
         for pid, player in players.items():
             name = self.entity_names.get(pid, pid)
             t_state = teams.get(player.team_index)
-            color = t_state.color_rgb if t_state else '#ffffff'
+            color = t_state.color_rgb if t_state else "#ffffff"
             player_to_color[name] = color
 
-        player_events_in_color = self.config.get('player_events_in_color', True)
+        player_events_in_color = self.config.get("player_events_in_color", True)
         color_map = player_to_color if player_events_in_color else None
 
         self._add_player_event_hud_element(
@@ -1945,8 +1876,8 @@ class VisualElementGenerator:
         )
 
         el_scroller = self._create_ui_element(
-            'all_game_events',
-            element_type='event_scroller',
+            "all_game_events",
+            element_type="event_scroller",
             events_data=list(self.event_log),
             player_to_color=player_to_color,
         )
@@ -1969,11 +1900,8 @@ class VisualElementGenerator:
         orig_config = self.config
 
         # Get pregame delay and game duration to resolve animated properties
-        pregame_delay_ms = orig_config.get('pregame_delay_ms', 0)
-        if (
-            isinstance(pregame_delay_ms, dict)
-            and 'keyframes' in pregame_delay_ms
-        ):
+        pregame_delay_ms = orig_config.get("pregame_delay_ms", 0)
+        if isinstance(pregame_delay_ms, dict) and "keyframes" in pregame_delay_ms:
             pregame_delay_ms = resolve_animated_value(
                 pregame_delay_ms,
                 time_ms,
@@ -2029,12 +1957,12 @@ class VisualElementGenerator:
             # Apply camera shake
             total_strength = 0.0
             for shake in self.camera_shakes:
-                start = shake['start_ms']
-                duration = shake['duration_ms']
+                start = shake.start_ms
+                duration = shake.duration_ms
                 if start <= game_time_ms < start + duration:
                     elapsed = game_time_ms - start
                     factor = 1.0 - (elapsed / duration)
-                    total_strength += shake['strength'] * factor
+                    total_strength += shake.strength * factor
 
             if total_strength > 0.0:
                 dx = random.uniform(-total_strength, total_strength)
@@ -2047,10 +1975,7 @@ class VisualElementGenerator:
 
             # Update alpha of each element based on visibility and fading
             for el in elements:
-                if (
-                    time_ms < el.visible_start_ms
-                    or time_ms >= el.visible_end_ms
-                ):
+                if time_ms < el.visible_start_ms or time_ms >= el.visible_end_ms:
                     el.alpha = 0.0
                 else:
                     multiplier = 1.0
@@ -2058,16 +1983,12 @@ class VisualElementGenerator:
                         el.fade_in_ms > 0
                         and time_ms < el.visible_start_ms + el.fade_in_ms
                     ):
-                        multiplier = (
-                            time_ms - el.visible_start_ms
-                        ) / el.fade_in_ms
+                        multiplier = (time_ms - el.visible_start_ms) / el.fade_in_ms
                     elif (
                         el.fade_out_ms > 0
                         and time_ms >= el.visible_end_ms - el.fade_out_ms
                     ):
-                        multiplier = (
-                            el.visible_end_ms - time_ms
-                        ) / el.fade_out_ms
+                        multiplier = (el.visible_end_ms - time_ms) / el.fade_out_ms
                     el.alpha *= max(0.0, min(1.0, multiplier))
 
             return elements
@@ -2091,20 +2012,20 @@ class VisualElementGenerator:
         for event in self.game.events:
             # 1. Player is missiled (0.01 strength, 500 ms duration)
             if (
-                event.event_type in ('0306', '0308')
+                event.event_type in ("0306", "0308")
                 and event.target_entity_id == self.entity_id
             ):
                 self.camera_shakes.append(
-                    {
-                        'start_ms': event.time,
-                        'duration_ms': 500,
-                        'strength': 0.01,
-                    }
+                    LFCameraShake(
+                        start_ms=event.time,
+                        duration_ms=500,
+                        strength=0.01,
+                    )
                 )
                 self.missile_flashes_ms.append(event.time)
 
             # 2. Enemy commander detonates a nuke (0.03 strength, 1000 ms duration)
-            elif event.event_type == '0405':
+            elif event.event_type == "0405":
                 actor_id = event.actor_entity_id
                 actor_entity = next(
                     (e for e in self.game.entities if e.entity_id == actor_id),
@@ -2112,15 +2033,15 @@ class VisualElementGenerator:
                 )
                 if (
                     actor_entity
-                    and actor_entity.type == 'player'
+                    and actor_entity.type == "player"
                     and actor_entity.team_index != player_team_idx
                     and actor_entity.category == 1  # Commander
                 ):
                     self.camera_shakes.append(
-                        {
-                            'start_ms': event.time,
-                            'duration_ms': 1000,
-                            'strength': 0.03,
-                        }
+                        LFCameraShake(
+                            start_ms=event.time,
+                            duration_ms=1000,
+                            strength=0.03,
+                        )
                     )
                     self.nuke_flashes.append(event.time)

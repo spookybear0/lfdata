@@ -284,10 +284,10 @@ def main() -> None:
                     f'size={el.style.size})'
                 )
                 print(f'{coord_str} Scoreboard {style_str}:')
-                for team in el.scoreboard_data['teams']:
-                    team_name = team['team_name']
-                    rank = team['visual_rank']
-                    score = team['team_score']
+                for team in el.scoreboard_data.teams:
+                    team_name = team.team_name
+                    rank = team.visual_rank
+                    score = team.team_score
                     print(
                         f'    {team_name} '
                         f'(visual_rank={rank:.2f}) - Score: {score}'
@@ -303,36 +303,36 @@ def main() -> None:
                     )
                     print(header)
                     print(f'      {"-" * 79}')
-                    for p in team['players']:
-                        if p['is_eliminated']:
+                    for p in team.players:
+                        if p.is_eliminated:
                             state_suffix = ' (Eliminated)'
-                        elif p['is_down']:
+                        elif p.is_down:
                             state_suffix = ' (Down)'
                         else:
                             state_suffix = ''
 
-                        codename_display = p['codename'] + state_suffix
+                        codename_display = p.codename + state_suffix
 
                         row = (
                             f'      {codename_display:<20} | '
-                            f'{p["role_name"]:<12} | '
-                            f'{p["score"]:>6} | '
-                            f'{p["lives"]:>5} | '
-                            f'{p["shots"]:>5} | '
-                            f'{p["missiles"]:>8} | '
-                            f'{p["special_points"]:>5}'
+                            f'{p.role_name:<12} | '
+                            f'{p.score:>6} | '
+                            f'{p.lives:>5} | '
+                            f'{p.shots:>5} | '
+                            f'{p.missiles:>8} | '
+                            f'{p.special_points:>5}'
                         )
                         print(row)
                     print(f'      {"-" * 79}')
-                    tot = team['totals']
+                    tot = team.totals
                     total_row = (
                         f'      {"TOTAL":<20} | '
                         f'{"":<12} | '
-                        f'{tot["score"]:>6} | '
-                        f'{tot["lives"]:>5} | '
-                        f'{tot["shots"]:>5} | '
-                        f'{tot["missiles"]:>8} | '
-                        f'{tot["special_points"]:>5}'
+                        f'{tot.score:>6} | '
+                        f'{tot.lives:>5} | '
+                        f'{tot.shots:>5} | '
+                        f'{tot.missiles:>8} | '
+                        f'{tot.special_points:>5}'
                     )
                     print(total_row)
 

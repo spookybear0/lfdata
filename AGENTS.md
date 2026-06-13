@@ -12,6 +12,7 @@
   files. Except for small classes, or private classes, each class should be
   in its own file.
 * Classes that are almost entirely just data members should be dataclasses.
+* Do NOT use dicts with string keys. 
 * All code in must have test coverage. Every Python file must have a matching
   test file (e.g. `my_module.py` must have a `test_my_module.py`).
 * Test coverage must be thorough, every computed data point needs to be tested
