@@ -53,6 +53,16 @@ class LFCameraShake:
 
 
 @dataclass
+class LFHitBorderInstance:
+    """Represents a single fullscreen hit border flash instance."""
+
+    start_ms: int
+    duration_ms: int
+    tint_hex: str
+    max_scale: float
+
+
+@dataclass
 class LFScoreboardPlayerData:
     """Represents a player's scoreboard statistics."""
 
@@ -119,11 +129,11 @@ class LFMultilineSlot:
 class UIElementStyle:
     """Represents text styling attributes for visual elements."""
 
-    font: str = "GoogleSans-Bold"
-    style: str = "normal"
+    font: str = 'GoogleSans-Bold'
+    style: str = 'normal'
     size: float | int = 20
-    color: str = "#ffffffff"
-    background_color: str = "#00000000"
+    color: str = '#ffffffff'
+    background_color: str = '#00000000'
 
 
 @dataclass
@@ -131,7 +141,7 @@ class UIElement:
     """Represents a single UI element on a video frame."""
 
     element_type: str
-    position: str = ""
+    position: str = ''
     text: str | None = None
     style: UIElementStyle = field(default_factory=UIElementStyle)
     x: float | None = None
