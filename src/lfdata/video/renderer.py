@@ -836,8 +836,8 @@ class VideoGenerator:
             '-c:v',
             codec,
         ]
-        if config.get('force_mono_audio', False):
-            cmd.extend(['-ac', '1']) # mono audio
+        if config.get('use_left_channel_mono', False):
+            cmd.extend(['-af', '"pan=stereo|FL=FL|FR=FL"']) # mono audio
         if extra_args:
             cmd.extend(extra_args)
         cmd.extend(
@@ -1119,8 +1119,8 @@ class VideoGenerator:
             '-c:v',
             codec
         ]
-        if config.get('force_mono_audio', False):
-            cmd.extend(['-ac', '1']) # mono audio
+        if config.get('use_left_channel_mono', False):
+            cmd.extend(['-af', '"pan=stereo|FL=FL|FR=FL"']) # mono audio
         if extra_args:
             cmd.extend(extra_args)
         cmd.extend(
