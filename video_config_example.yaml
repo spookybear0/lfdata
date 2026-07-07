@@ -35,6 +35,9 @@ player_name: null
 # 'use_pipe': stream frame bytes directly to FFmpeg instead of writing temp PNG files.
 # Default: true
 use_pipe: true
+# 'force_mono_audio': force FFmpeg to combine the left and right audio channels into a single mono channel.
+# Default: false
+force_mono_audio: false
 
 # 'codec': The custom video encoder to use.
 # If null, the generator automatically picks the best hardware-accelerated H.264 encoder

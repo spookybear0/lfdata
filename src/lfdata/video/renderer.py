@@ -561,7 +561,7 @@ class VideoGenerator:
                     config=config,
                     hud_gen=hud_gen,
                 )
-                self._compile_video(temp_path, fps_val, output_path)
+                self._compile_video(temp_path, fps_val, output_path, config)
         return output_path
 
     def _load_config(self, config_path: str | Path | None) -> dict[str, Any]:
@@ -834,9 +834,10 @@ class VideoGenerator:
             '-i',
             '-',
             '-c:v',
-            '-ac', '1', # force mono
             codec,
         ]
+        if config.get('force_mono_audio', False):
+            cmd.extend(['-ac', '1']) # mono audio
         if extra_args:
             cmd.extend(extra_args)
         cmd.extend(
@@ -1075,7 +1076,7 @@ class VideoGenerator:
             raise e
 
     def _compile_video(
-        self, frames_dir: Path, fps: int, output_path: Path
+        self, frames_dir: Path, fps: int, output_path: Path, config: dict[str, Any]
     ) -> None:
         """Compiles PNG frames in a directory into a video using ffmpeg.
 
@@ -1116,9 +1117,10 @@ class VideoGenerator:
             '-i',
             str(frames_dir / 'frame_%05d.png'),
             '-c:v',
-            codec,
-            '-ac', '1', # mono audio
+            codec
         ]
+        if config.get('force_mono_audio', False):
+            cmd.extend(['-ac', '1']) # mono audio
         if extra_args:
             cmd.extend(extra_args)
         cmd.extend(
